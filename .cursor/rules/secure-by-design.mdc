@@ -1,0 +1,20 @@
+---
+description: Secure by Design — RODO/ISO/NIS2, RLS, brak logiki medycznej na froncie
+alwaysApply: true
+---
+
+# Secure by Design
+
+Pełna polityka: [`SECURITY.md`](../../SECURITY.md). Kontekst produktu: [`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md).
+
+## Non-negotiables
+
+1. **Frontend = UI only.** Żadnego parsowania / filtrowania / Guardrails na danych medycznych w przeglądarce (Alpine.js). To robi Edge Function.
+2. **Każda nowa tabela → RLS** + polityki pod `app_role` (`superadmin`, `org_admin`, `nurse`, `family`, `iot_device`).
+3. **Tenant filter:** `organization_id` zgodny z profilem użytkownika (poza `superadmin`).
+4. **Family:** tylko `processed_data` (widok `family_daily_reports`), nigdy `raw_data` w kliencie rodziny.
+5. **IoT:** wyłącznie INSERT logów sensorowych.
+6. **Secrets:** `service_role`, DB password, OpenAI, access tokeny — nie w HTML/JS/Pages public / git.
+7. **Edge Functions:** weryfikuj JWT (lub token urządzenia) przed akcją.
+8. **Audit:** UPDATE/DELETE tenantowych danych → `audit_logs` (trigger lub równoważny mechanizm).
+9. **Nie mieszaj z DFCMS** — osobny Pages project i osobny Supabase.

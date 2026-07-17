@@ -1,0 +1,28 @@
+---
+description: Aktualizuj docs/MASTER_CONTEXT.md na koniec sesji przy istotnych zmianach produktu
+alwaysApply: true
+---
+
+# Kontekst trwały (Pakiet Spokoju / SeniorSmart)
+
+## Źródło prawdy
+
+**[`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md)** — wizja, Secure by Design, środowiska (Supabase + Cloudflare), multi-tenant schema, RLS/RBAC, deploy, changelog. Aktualizuj **na koniec sesji**, gdy zmienia się zachowanie w produkcji, API, flow użytkownika lub architektura.
+
+Security policy i reguły inżynierskie: **[`SECURITY.md`](../../SECURITY.md)**.
+
+## Przed większą zmianą
+
+Gdy dotykasz Auth, RLS, migracji SQL, Edge Functions, AI (Whisper/GPT), lub paneli pielęgniarka/rodzina — **przejrzyj** `docs/MASTER_CONTEXT.md` i `SECURITY.md`, żeby nie złamać izolacji tenanta ani zasady „brak logiki medycznej na froncie”.
+
+## Po zakończonym zadaniu
+
+1. **Zaktualizuj** `docs/MASTER_CONTEXT.md`: odpowiednie sekcje, data w nagłówku, wpis w §10 Dziennik transformacji.
+2. Nie duplikuj pełnych diffów — w kodzie komentarze, w MASTER_CONTEXT **mapa i decyzje**.
+
+Nie twórz osobnych dokumentów architektury na każdy task, chyba że użytkownik wyraźnie poprosi.
+
+## Deploy safety
+
+- Cloudflare Pages project: **`smart-senior`** — nigdy `dfcms` / `dfopscms`.
+- Supabase `project-ref`: **`bmughdoqdsjfstxnnjks`** — sprawdź przed `db push`.

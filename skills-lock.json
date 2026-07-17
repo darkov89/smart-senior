@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "supabase-seniorsmart": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/supabase-seniorsmart"
+    },
+    "cloudflare-seniorsmart": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/cloudflare-seniorsmart"
+    },
+    "secure-by-design": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/secure-by-design"
+    }
+  }
+}
