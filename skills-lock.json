@@ -15,6 +15,11 @@
       "source": "project",
       "sourceType": "local",
       "path": ".agents/skills/secure-by-design"
+    },
+    "clean-scalable-code": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/clean-scalable-code"
     }
   }
 }

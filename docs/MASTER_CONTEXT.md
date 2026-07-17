@@ -3,7 +3,7 @@
 > **Źródło prawdy technicznego stanu aplikacji.** Aktualizuj **na koniec sesji**, gdy zmienia się zachowanie w produkcji, API, flow użytkownika lub architektura.  
 > Security policy: [`SECURITY.md`](../SECURITY.md). Szybki start: [`README.md`](../README.md) (gdy powstanie).
 
-**Ostatnia aktualizacja treści:** 2026-07-17 — init: multi-tenant schema + RLS, Cloudflare Pages `smart-senior`, repo GitHub
+**Ostatnia aktualizacja treści:** 2026-07-17 — reguła clean-scalable-code (always on) + skill
 
 ---
 
@@ -121,6 +121,7 @@ Trigger audytu: `audit_row_change()` na UPDATE/DELETE (organizations, profiles, 
 3. Zapytania tenantowe → filtr `organization_id` aktualnego użytkownika (poza świadomym Service Role).
 4. Frontend → proste stany Alpine; zero logiki medycznej / Guardrails w przeglądarce.
 5. **Service role / secret keys** nigdy w statycznym froncie ani w Pages (public).
+6. **Czystość i skalowalność (obowiązkowe):** kod w najczystszej, skalowalnej formie — jedna odpowiedzialność, jawne nazwy, małe moduły, brak pomijanych błędów, konfiguracja poza logiką. Szczegóły: reguła Cursor `.cursor/rules/clean-scalable-code.mdc` + skill `.agents/skills/clean-scalable-code`.
 
 ---
 
@@ -164,3 +165,4 @@ Pielęgniarka / Rodzina / IoT
 | Data | Zmiana |
 |------|--------|
 | 2026-07-17 | Init repo, migracja multi-tenant + RLS + audit, Pages `smart-senior`, GitHub `darkov89/smart-senior`, docs/skills/security jak w DFCMS |
+| 2026-07-17 | Reguła always-on `clean-scalable-code` + skill — obowiązkowe najlepsze praktyki czystości i skalowalności |

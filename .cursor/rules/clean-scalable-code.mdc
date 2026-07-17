@@ -1,0 +1,60 @@
+---
+description: Czysty, skalowalny kod — najlepsze praktyki (HTML/Alpine/Supabase/Edge)
+alwaysApply: true
+---
+
+# Clean & Scalable Code (Pakiet Spokoju)
+
+Kod zawsze w **najczystszej i najbardziej skalowalnej** formie. Preferuj czytelność, jawne kontrakty i małe jednostki nad sprytnymi skrótami. Kontekst: [`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md). Security: [`SECURITY.md`](../../SECURITY.md).
+
+## Zasady ogólne
+
+1. **Jedna odpowiedzialność** — plik / funkcja / sekcja UI robi jedną rzecz; dziel zanim urośnie.
+2. **Jawne nazwy** — `organizationId`, `processedData`, nie `d`, `tmp`, `data2`.
+3. **Mały diff** — tylko to, czego wymaga zadanie; zero spekulacyjnych abstrakcji „na zapas”.
+4. **DRY z umiarem** — wyciągaj wspólny kod dopiero przy 2–3 realnych powtórzeniach, nie przy pierwszym podejrzeniu.
+5. **Błędy widoczne** — nie połykaj wyjątków; loguj / zwracaj czytelny błąd; nie używaj pustego `catch`.
+6. **Konfiguracja poza logiką** — URL-e, role, limity w jednym miejscu (config / env), nie rozrzucone magiczne stringi.
+7. **Testowalność** — czyste funkcje bez side-effectów tam, gdzie da się wyciągnąć logikę z I/O.
+
+## Frontend (HTML / Tailwind / Alpine)
+
+- **Mobile-first**, proste stany Alpine; unikaj monolitu w jednym `x-data` na całą aplikację.
+- Rozdzielaj: markup (`*.html`) ↔ logika (`src/**/*.js`) ↔ ewentualne partials / komponenty UI.
+- Tailwind: utility w markupie; powtarzalne wzorce → małe partials / wspólne klasy, nie kopiuj całych sekcji.
+- Zero logiki medycznej / Guardrails w przeglądarce (patrz Secure by Design).
+- Nie buduj „frameworka w Alpine” — trzymaj się prostych wzorców DFCMS-like: czytelne handlery, małe moduły.
+
+## Supabase / SQL
+
+- Migracje przez `supabase migration new`; jedna migracja = jeden spójny temat.
+- Nowa tabela → RLS + indeksy pod realne filtry (`organization_id`, FK).
+- Polityki krótkie, oparte o helpery (`is_org_staff()`, …); unikaj kopiowania tego samego `EXISTS` w 10 politykach.
+- Preferuj widoki / Edge DTO zamiast „prawie bezpiecznego” SELECT `*` dla rodzin.
+
+## Edge Functions (TypeScript / Deno)
+
+- Stały szkielet: verify JWT → validate input → business logic → typed response.
+- Współdzielony kod w `supabase/functions/_shared/` (auth, errors, cors) — bez duplikacji per funkcja.
+- Małe funkcje, wczesne `return` przy błędach, jednolity format błędów API.
+- Secrets tylko z env; nigdy hardcode.
+
+## Struktura repo (kierunek skalowania)
+
+```
+index.html / screens…     → UI
+src/                      → JS moduły (auth, api, ui)
+supabase/migrations/      → schema + RLS
+supabase/functions/       → backend / AI
+docs/MASTER_CONTEXT.md    → mapa decyzji
+```
+
+Gdy plik przekracza komfortową czytelność (~kilkaset linii logiki) — **wydziel**, zamiast doklejać.
+
+## Anti-patterns (zakazane)
+
+- God-object / jeden ogromny `app.js` bez podziału
+- Duplikacja polityk RLS i logiki Edge „na skróty”
+- Komentarze tłumaczące oczywisty kod; preferuj lepsze nazwy
+- Feature flagi i martwy kod „przyda się później”
+- Mieszanie deploy targetów z DFCMS
