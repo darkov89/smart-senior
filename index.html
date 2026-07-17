@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pakiet Spokoju</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <div
+      class="mx-auto flex min-h-screen w-full max-w-lg flex-col"
+      x-data="{ ready: true }"
+    >
+      <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <p class="text-xs font-medium uppercase tracking-wide text-teal-700">Pakiet Spokoju</p>
+        <h1 class="text-xl font-semibold tracking-tight">Panel MVP</h1>
+      </header>
+
+      <main class="flex flex-1 flex-col gap-4 px-4 py-6">
+        <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
+          <h2 class="text-lg font-semibold">Środowisko gotowe</h2>
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Mobile-first szkielet: HTML5, Tailwind CSS, Alpine.js. Backend multi-tenant
+            na Supabase (RLS). Logika medyczna tylko w Edge Functions.
+          </p>
+          <p class="mt-4 text-sm text-slate-500" x-show="ready" x-cloak>
+            Frontend załadowany · czekamy na kolejne ekrany (pielęgniarka / rodzina).
+          </p>
+        </section>
+      </main>
+
+      <footer class="px-4 py-4 text-center text-xs text-slate-500">
+        Secure by Design · SeniorSmart
+      </footer>
+    </div>
+    <script src="./src/app.js"></script>
+  </body>
+</html>
