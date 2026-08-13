@@ -4,29 +4,153 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pakiet Spokoju</title>
+    <!-- Tailwind: utility CSS bez lokalnego bundlera (Cloudflare Pages static). -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#f0fdfa',
+                600: '#0d9488',
+                700: '#0f766e',
+                800: '#115e59',
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      [x-cloak] {
+        display: none !important;
+      }
+    </style>
   </head>
   <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
-    <div
-      class="mx-auto flex min-h-screen w-full max-w-lg flex-col"
-      x-data="{ ready: true }"
-    >
-      <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <p class="text-xs font-medium uppercase tracking-wide text-teal-700">Pakiet Spokoju</p>
-        <h1 class="text-xl font-semibold tracking-tight">Panel MVP</h1>
+    <!--
+      Shell aplikacji: UI tylko. Auth / dane tenantowe przez Supabase + RLS.
+      Stan: Alpine.store('auth') — patrz src/js/stores/authStore.js
+    -->
+    <div class="mx-auto flex min-h-screen w-full max-w-lg flex-col">
+      <header
+        class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wide text-brand-700">
+              Pakiet Spokoju
+            </p>
+            <h1 class="text-xl font-semibold tracking-tight">Panel</h1>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            x-cloak
+            x-show="$store.auth.isAuthenticated"
+            x-bind:disabled="$store.auth.busy"
+            x-on:click="$store.auth.logout()"
+          >
+            Wyloguj
+          </button>
+        </div>
       </header>
 
-      <main class="flex flex-1 flex-col gap-4 px-4 py-6">
-        <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80">
-          <h2 class="text-lg font-semibold">Środowisko gotowe</h2>
-          <p class="mt-2 text-sm leading-relaxed text-slate-600">
-            Mobile-first szkielet: HTML5, Tailwind CSS, Alpine.js. Backend multi-tenant
-            na Supabase (RLS). Logika medyczna tylko w Edge Functions.
+      <main class="flex flex-1 flex-col px-4 py-6">
+        <!-- Stan początkowy: sprawdzanie sesji (bez flashu formularza). -->
+        <div
+          class="flex flex-1 items-center justify-center text-sm text-slate-500"
+          x-show="$store.auth.loading"
+          x-cloak
+        >
+          Ładowanie sesji…
+        </div>
+
+        <!-- Gość: formularz logowania -->
+        <section
+          class="mx-auto w-full max-w-sm"
+          x-data="{ email: '', password: '' }"
+          x-show="!$store.auth.loading && !$store.auth.isAuthenticated"
+          x-cloak
+        >
+          <h2 class="text-lg font-semibold tracking-tight">Logowanie</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Zaloguj się kontem personelu lub rodziny.
           </p>
-          <p class="mt-4 text-sm text-slate-500" x-show="ready" x-cloak>
-            Frontend załadowany · czekamy na kolejne ekrany (pielęgniarka / rodzina).
-          </p>
+
+          <form
+            class="mt-6 space-y-4"
+            x-on:submit.prevent="$store.auth.login(email, password)"
+          >
+            <div>
+              <label for="login-email" class="mb-1 block text-sm font-medium text-slate-700">
+                E-mail
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                name="email"
+                autocomplete="username"
+                required
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none ring-brand-600 focus:ring-2"
+                x-model="email"
+              />
+            </div>
+
+            <div>
+              <label for="login-password" class="mb-1 block text-sm font-medium text-slate-700">
+                Hasło
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                required
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none ring-brand-600 focus:ring-2"
+                x-model="password"
+              />
+            </div>
+
+            <p
+              class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800"
+              role="alert"
+              x-show="$store.auth.errorMessage"
+              x-text="$store.auth.errorMessage"
+              x-cloak
+            ></p>
+
+            <button
+              type="submit"
+              class="w-full rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
+              x-bind:disabled="$store.auth.busy"
+            >
+              <span x-show="!$store.auth.busy">Zaloguj się</span>
+              <span x-show="$store.auth.busy" x-cloak>Logowanie…</span>
+            </button>
+          </form>
+        </section>
+
+        <!-- Zalogowany: placeholder ekranu głównego (kolejne etapy: panele ról). -->
+        <section
+          class="flex flex-1 flex-col items-center justify-center text-center"
+          x-show="!$store.auth.loading && $store.auth.isAuthenticated"
+          x-cloak
+        >
+          <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
+            Witaj w systemie
+          </h2>
+          <p
+            class="mt-2 text-sm text-slate-600"
+            x-show="$store.auth.fullName || $store.auth.user?.email"
+            x-text="$store.auth.fullName || $store.auth.user?.email"
+          ></p>
+          <p
+            class="mt-1 text-xs text-slate-500"
+            x-show="$store.auth.role"
+            x-text="'Rola: ' + $store.auth.role"
+          ></p>
         </section>
       </main>
 
@@ -34,6 +158,17 @@
         Secure by Design · SeniorSmart
       </footer>
     </div>
-    <script src="./src/app.js"></script>
+
+    <!--
+      Skrypty (kolejność ważna):
+      1) ES modules (main → stores / services) — defer z natury, przed Alpine
+      2) Alpine CDN — OSTATNI, defer (czyta zarejestrowane store przy alpine:init)
+      Supabase JS ładuje się jako import ESM wewnątrz supabaseClient.js (nie osobny tag).
+    -->
+    <script type="module" src="./src/js/main.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"
+    ></script>
   </body>
 </html>

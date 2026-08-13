@@ -1,0 +1,30 @@
+---
+description: >-
+  SKILL ON-DEMAND: Cloudflare — Next.js OpenNext (smart-senior-web) + legacy Pages.
+alwaysApply: false
+---
+
+# Cloudflare — SeniorSmart (On-Demand Lens)
+
+**Zanim deploy:** skill [`.agents/skills/cloudflare-seniorsmart/SKILL.md`](../../.agents/skills/cloudflare-seniorsmart/SKILL.md).
+
+## Hard facts
+
+| | Wartość |
+|--|---------|
+| Next.js | Worker **`smart-senior-web`** (`@opennextjs/cloudflare`) |
+| Legacy static | Pages **`smart-senior`** |
+| Zakaz | Vercel, `@cloudflare/next-on-pages`, `dfcms` |
+
+```bash
+npm run web:dev
+cd web && npm run deploy    # tylko po zgodzie na cutover
+npm run deploy:legacy       # Vanilla Pages
+```
+
+## Zasady
+
+1. Do bundla tylko publishable/anon — zero `service_role` / OpenAI / DB password.
+2. Nie uploaduj `.env`.
+3. Po zmianie modelu deploy → `docs/MASTER_CONTEXT.md` §10.
+4. Wątpliwość targetu deploy → STOP / potwierdź z człowiekiem.

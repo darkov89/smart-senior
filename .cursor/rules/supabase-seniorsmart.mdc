@@ -1,0 +1,33 @@
+---
+description: >-
+  SKILL ON-DEMAND: Baza danych, RLS, migracje, Auth, Edge Functions (Supabase SeniorSmart).
+alwaysApply: false
+---
+
+# Supabase — SeniorSmart (On-Demand Lens)
+
+**Zanim kod / `db push`:** przeczytaj skill [`.agents/skills/supabase-seniorsmart/SKILL.md`](../../.agents/skills/supabase-seniorsmart/SKILL.md) — **ops SoT** (ten `.mdc` = bramka).
+
+## Hard facts
+
+| | Wartość |
+|--|---------|
+| `project-ref` | `bmughdoqdsjfstxnnjks` (SeniorSmart, Stockholm) |
+| Tenant | `organization_id` |
+| Role | `app_role`: superadmin, org_admin, nurse, family, iot_device — w JWT `app_metadata` (ADR-006) |
+| Family | widok `family_daily_reports` — bez `raw_data` |
+| Audit | `audit_logs` + triggery UPDATE/DELETE |
+
+```bash
+cat supabase/.temp/project-ref
+# expected: bmughdoqdsjfstxnnjks
+```
+
+## Zasady
+
+1. Nowa tabela = RLS + polityki w **tej samej** migracji (tenant z JWT claims, nie `current_organization_id()`).
+2. Edge: verify JWT (lub device token) przed side-effectami; Guardrails AI tylko tu.
+3. Telemetria: Polar tabele `polar_*` (ADR-009); ingest OAuth — Faza 4. `telemetry_logs` = legacy. Tokenów Polar nie trzymaj w tabelach z GRANT dla klienta.
+4. Głos: tabele `voice_*` (ADR-010) — RLS personel org; family zero. Nie haszuj transkryptów.
+5. Niepewność RLS/RBAC → `🛑 COMPLIANCE / ARCH CHECK REQUIRED` (`living-context.mdc`).
+6. Nigdy project DFCMS. Token: `SUPABASE_ACCESS_TOKEN` z `.env` (nie w git).

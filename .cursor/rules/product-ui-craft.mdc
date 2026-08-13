@@ -1,0 +1,54 @@
+---
+description: UI/UX premium + lepsze wersje promptów (język ludzki, zero placeholderów)
+alwaysApply: true
+---
+
+# Product UI Craft (Pakiet Spokoju)
+
+**Źródło prawdy = ten plik.** Routing: [`living-context.mdc`](living-context.mdc). Treść AI w UI: oznaczaj wsparcie AI (`secure-by-design`).
+
+Frontend to **produkt dla ludzi** (pielęgniarki, rodziny, admin domu opieki) — nie demo techniczne.
+
+## Poprzeczka UI / UX
+
+1. **Wykończone, nie „MVP wireframe”** — typografia, rytm, hierarchia, stany puste/loading/błąd/sukces.
+2. **Zero żargonu w UI** — zakazane: sesja, token, RLS, JWT, Edge, store, org_id, role enum (`nurse`), „Secure by Design”, stack, deploy, API.
+3. **Zero słabych placeholderów** — nie: Lorem, TODO, „Panel MVP”, generyczne „Dashboard”.
+4. **Stany jak produkt** — loading/błąd/pustka po ludzku; nigdy surowy exception.
+5. **Zaufanie i spokój** — kontrast, duże cele, mobile-first; bez chaosu „AI chrome”.
+6. **Spójność** — ten sam język i wzorce na wszystkich ekranach.
+
+## Audience & tone
+
+| Audience | Tone |
+|----------|------|
+| Personel | Spokojny, konkretny, mało słów |
+| Rodzina | Empatyczny, prosty — „święty spokój” |
+| Admin domu | Klarowny, odpowiedzialny |
+
+UI po **polsku**, tryb dokonujący („Zaloguj się”, „Zapisz notatkę”).
+
+## Copy map
+
+| Źle | Dobrze |
+|-----|--------|
+| Ładowanie sesji… | Chwila, sprawdzamy logowanie… |
+| Witaj w systemie | Dzień dobry — oto dzisiejszy podgląd |
+| Rola: nurse | Konto personelu |
+| organization_id | *(nie pokazuj)* |
+| Panel MVP | Pakiet Spokoju |
+| Invalid JWT | Nie udało się zalogować. Sprawdź e-mail i hasło. |
+
+## Współpraca przy promptach
+
+1. Oceń prompt — czy jaśniej / bezpieczniej / bardziej produktowo?
+2. Zaproponuj lepszą wersję (3–6 pkt) — potem realizuj.
+3. Nie obniżaj poprzeczki (chyba że user każe draft).
+4. Pytaj przy zmianie kierunku **lub** niepewności security → HITL (`living-context`).
+
+## Anti-patterns
+
+- Ekran „Środowisko gotowe” / „Frontend załadowany”
+- Surowe role DB bez mapowania na ludzki język
+- Formularze bez etykiet / busy / czytelnego błędu
+- Nazwy tabel, pól technicznych, UUID w copy

@@ -1,0 +1,16 @@
+---
+description: >-
+  LEGACY: Vanilla JS (ESM + JSDoc) dla pozostałości index.html / src/js.
+  Kanon frontu = frontend-next.mdc (/web). Nie rozszerzaj tego stosu (ADR-008).
+globs: src/**/*.js,*.html
+alwaysApply: false
+---
+
+# Frontend — Vanilla JS (LEGACY)
+
+**Status:** legacy do usunięcia w Fazie 2. Nie dodawaj nowych ekranów tutaj.
+
+- Pozostałości: `index.html`, `src/js/**` (Cloudflare Pages static) — do cutoveru OpenNext.
+- Kanon: Next.js w `web/` — [frontend-next.mdc](frontend-next.mdc), ADR-008.
+- Jeśli musisz tknąć ten kod przed usunięciem: wyłącznie Vanilla ESM + JSDoc (bez składni TypeScript).
+- Zero logiki medycznej / Guardrails w przeglądarce.

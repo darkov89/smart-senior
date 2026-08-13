@@ -1,11 +1,15 @@
 ---
-description: Czysty, skalowalny kod — najlepsze praktyki (HTML/Alpine/Supabase/Edge)
+description: Czysty, skalowalny kod — Next.js /web, legacy Vanilla, Supabase, Edge
 alwaysApply: true
 ---
 
 # Clean & Scalable Code (Pakiet Spokoju)
 
+**Źródło prawdy = ten plik.** Router: [`living-context.mdc`](living-context.mdc). Przy niepewności architektury/compliance → HITL stop.
+
 Kod zawsze w **najczystszej i najbardziej skalowalnej** formie. Preferuj czytelność, jawne kontrakty i małe jednostki nad sprytnymi skrótami. Kontekst: [`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md). Security: [`SECURITY.md`](../../SECURITY.md).
+
+**Język / runtime (izolacja środowisk):** front kanoniczny — [`frontend-next.mdc`](frontend-next.mdc) (Next.js / TS w `web/`, ADR-008). Legacy Vanilla — [`frontend-js.mdc`](frontend-js.mdc) (`index.html`, `src/js` — nie rozszerzaj). Edge — [`backend-ts.mdc`](backend-ts.mdc) (strict TypeScript, Deno). Nie mieszaj luźnego JS w Edge.
 
 ## Zasady ogólne
 
@@ -17,23 +21,23 @@ Kod zawsze w **najczystszej i najbardziej skalowalnej** formie. Preferuj czyteln
 6. **Konfiguracja poza logiką** — URL-e, role, limity w jednym miejscu (config / env), nie rozrzucone magiczne stringi.
 7. **Testowalność** — czyste funkcje bez side-effectów tam, gdzie da się wyciągnąć logikę z I/O.
 
-## Frontend (HTML / Tailwind / Alpine)
+## Frontend (Next.js w `/web`; legacy Alpine nie rozszerzaj)
 
-- **Mobile-first**, proste stany Alpine; unikaj monolitu w jednym `x-data` na całą aplikację.
-- Rozdzielaj: markup (`*.html`) ↔ logika (`src/**/*.js`) ↔ ewentualne partials / komponenty UI.
-- Tailwind: utility w markupie; powtarzalne wzorce → małe partials / wspólne klasy, nie kopiuj całych sekcji.
+- **Kanon:** Next.js App Router + TS + Tailwind w `web/` — [`frontend-next.mdc`](frontend-next.mdc).
+- **Legacy:** `index.html` / `src/js/**` — nie dodawaj feature'ów; usunięcie w Fazie 2 (ADR-008).
 - Zero logiki medycznej / Guardrails w przeglądarce (patrz Secure by Design).
-- Nie buduj „frameworka w Alpine” — trzymaj się prostych wzorców DFCMS-like: czytelne handlery, małe moduły.
+- Mobile-first; copy: `product-ui-craft.mdc`.
 
 ## Supabase / SQL
 
 - Migracje przez `supabase migration new`; jedna migracja = jeden spójny temat.
 - Nowa tabela → RLS + indeksy pod realne filtry (`organization_id`, FK).
-- Polityki krótkie, oparte o helpery (`is_org_staff()`, …); unikaj kopiowania tego samego `EXISTS` w 10 politykach.
+- Polityki krótkie; tenant/rola z JWT `app_metadata` (ADR-006), nie SECURITY DEFINER na `profiles`. `family_can_access_patient()` tylko dla przypisań rodziny.
 - Preferuj widoki / Edge DTO zamiast „prawie bezpiecznego” SELECT `*` dla rodzin.
 
 ## Edge Functions (TypeScript / Deno)
 
+- **Język:** strict TypeScript — szczegóły w [`backend-ts.mdc`](backend-ts.mdc); testy AI: [`guardrails-tester.mdc`](guardrails-tester.mdc).
 - Stały szkielet: verify JWT → validate input → business logic → typed response.
 - Współdzielony kod w `supabase/functions/_shared/` (auth, errors, cors) — bez duplikacji per funkcja.
 - Małe funkcje, wczesne `return` przy błędach, jednolity format błędów API.
@@ -42,8 +46,8 @@ Kod zawsze w **najczystszej i najbardziej skalowalnej** formie. Preferuj czyteln
 ## Struktura repo (kierunek skalowania)
 
 ```
-index.html / screens…     → UI
-src/                      → JS moduły (auth, api, ui)
+web/                      → Next.js (Faza 2); placeholder Faza 1
+index.html / src/js/      → legacy Vanilla (do usunięcia w Fazie 2)
 supabase/migrations/      → schema + RLS
 supabase/functions/       → backend / AI
 docs/MASTER_CONTEXT.md    → mapa decyzji

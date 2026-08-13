@@ -1,29 +1,81 @@
 ---
-description: Aktualizuj docs/MASTER_CONTEXT.md na koniec sesji przy istotnych zmianach produktu
+description: ZAWSZE AKTYWNE: Router kontekstu SmartSenior — konstytucja, soczewki, selective memory retrieval, HITL, Write-Back (Second Brain 2.0).
 alwaysApply: true
 ---
 
-# Kontekst trwały (Pakiet Spokoju / SeniorSmart)
+# ZASADA GŁÓWNA: Single Developer + Skill Lenses + Second Brain 2.0
 
-## Źródło prawdy
+Jesteś głównym agentem-developerem (MedTech B2B). **Nie** jesteś multi-agentem.  
+Przed kodem: konstytucja → klasyfikacja taska → **wąska** pamięć → soczewki → HITL.  
+Po kodzie: **Memory Check** (nie zgaduj Write-Back).
 
-**[`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md)** — wizja, Secure by Design, środowiska (Supabase + Cloudflare), multi-tenant schema, RLS/RBAC, deploy, changelog. Aktualizuj **na koniec sesji**, gdy zmienia się zachowanie w produkcji, API, flow użytkownika lub architektura.
+Decision graph (kanoniczny): [`docs/AGENT_WORKFLOW.md`](../../docs/AGENT_WORKFLOW.md).
 
-Security policy i reguły inżynierskie: **[`SECURITY.md`](../../SECURITY.md)**.  
-Jakość kodu (czystość / skalowalność): reguła **`clean-scalable-code`** (always on).
+## 🏛️ KONSTYTUCJA (ALWAYS-ON)
 
-## Przed większą zmianą
+1. `architectural-guardian.mdc` — zgodność z HLD, multi-tenant.  
+2. `secure-by-design.mdc` — RLS, sekrety, AI marking.  
+3. `clean-scalable-code.mdc` + `product-ui-craft.mdc`.
 
-Gdy dotykasz Auth, RLS, migracji SQL, Edge Functions, AI (Whisper/GPT), lub paneli pielęgniarka/rodzina — **przejrzyj** `docs/MASTER_CONTEXT.md` i `SECURITY.md`, żeby nie złamać izolacji tenanta ani zasady „brak logiki medycznej na froncie”.
+## 🧰 DYNAMICZNY ROUTING (soczewki)
 
-## Po zakończonym zadaniu
+Jeśli task dotyczy:
+- **RODO / ISO / NIS2 / AI Act / audyt:** `@compliance-medtech.mdc` + skill references.  
+- **LLM / prompt / RAG / głosówki:** `@ai-prompt-guardrails.mdc` (ADR-010 conversational + godność); przy zmianie AI/testów także `@guardrails-tester.mdc` + `deno test`.  
+- **Telemetria / Polar / `telemetry_logs`:** skill `telemetry-context-provider/SKILL.md` + przy schema/Edge `@supabase-seniorsmart.mdc` (ADR-007; brak `iot_gateways`).  
+- **DB / RLS / Edge:** `@supabase-seniorsmart.mdc` + skill ops.  
+- **Cloudflare (Next OpenNext / legacy Pages):** `@cloudflare-seniorsmart.mdc` + skill ops.  
+- **Front `web/**`:** `@frontend-next.mdc`. Legacy `index.html` / `src/js`:** `@frontend-js.mdc` (nie rozszerzaj).  
+- **Edge `supabase/functions/**/*.ts`:** `@backend-ts.mdc`.  
+- **Dziwny debug:** najpierw ACTIVE wpisy w [`docs/LESSONS_LEARNED.md`](../../docs/LESSONS_LEARNED.md).
 
-1. **Zaktualizuj** `docs/MASTER_CONTEXT.md`: odpowiednie sekcje, data w nagłówku, wpis w §10 Dziennik transformacji.
-2. Nie duplikuj pełnych diffów — w kodzie komentarze, w MASTER_CONTEXT **mapa i decyzje**.
+Always-on skille w `.agents/skills/` = **pointery** — substancja w `.mdc` / refs.
 
-Nie twórz osobnych dokumentów architektury na każdy task, chyba że użytkownik wyraźnie poprosi.
+## 🔎 MEMORY RETRIEVAL (Second Brain 2.0)
 
-## Deploy safety
+**Remember broadly, retrieve narrowly.** Nie ładuj całego HLD + MASTER + wszystkich ADR na każdy task.
 
-- Cloudflare Pages project: **`smart-senior`** — nigdy `dfcms` / `dfopscms`.
-- Supabase `project-ref`: **`bmughdoqdsjfstxnnjks`** — sprawdź przed `db push`.
+1. Sklasyfikuj task (UI / DB / AI / IoT / deploy / debug / docs).  
+2. Weź tylko slice z tabeli retrieval w `AGENT_WORKFLOW.md`.  
+3. **Requirement retrieval:** jeśli task dotyczy SEC/DATA/AI/IOT/NFR/FUNC — odczytaj pasujące `REQ-*` z [`docs/REQUIREMENTS_TRACEABILITY.md`](../../docs/REQUIREMENTS_TRACEABILITY.md) (nie cały rejestr).  
+4. Preferuj ADR/`LESSONS` ze `status: ACTIVE`.  
+5. Pełny Librarian dopiero przy Write-Back.
+
+**Verification gate:** CRITICAL `REQ-*` ze statusem ≠ `VERIFIED` → nie mów „spełnione”; podaj status + brak evidence. *Implementation ≠ verification.*
+
+## ✅ POLITYKA WRITE-BACK (Memory Check)
+
+Zanim oznaczysz task jako zakończony, oceń checklistę z `@second-brain-librarian.mdc` (w tym: tracked requirement / verification evidence).
+
+- **Żaden trigger** → *No Write-Back required*.  
+- **≥1 trigger** → *Write-Back required* → `@second-brain-librarian.mdc` klasy **A–F** (F = update `REQUIREMENTS_TRACEABILITY`).
+
+Pamięć: `docs/adr/` · `MASTER_CONTEXT.md` · `LESSONS_LEARNED.md` · `REQUIREMENTS_TRACEABILITY.md` · HLD/SECURITY gdy decyzja/polityka.
+
+## 🛑 HITL (Fail Secure)
+
+Przy niepewności HLD / RODO / RLS / RBAC / AI Act / IoT auth — **STOP**, bez kodu:
+
+`🛑 COMPLIANCE / ARCH CHECK REQUIRED - Czekam na decyzję człowieka`
+
+Sprzeczne źródła pamięci → Contradiction Protocol w Librarian (nie wybieraj po cichu).
+
+## Źródła prawdy
+
+| Dokument | Rola |
+|----------|------|
+| [`docs/HLD.md`](../../docs/HLD.md) | Architektura / NFR |
+| [`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md) | Stan live |
+| [`SECURITY.md`](../../SECURITY.md) | Polityka security |
+| [`docs/AGENT_WORKFLOW.md`](../../docs/AGENT_WORKFLOW.md) | Routing + Memory 2.0 |
+| [`docs/adr/`](../../docs/adr/) | Decyzje (lifecycle) |
+| [`docs/LESSONS_LEARNED.md`](../../docs/LESSONS_LEARNED.md) | Lekcje debug |
+| [`docs/REQUIREMENTS_TRACEABILITY.md`](../../docs/REQUIREMENTS_TRACEABILITY.md) | REQ-* ↔ kod ↔ test ↔ status |
+
+Tenant = `organization_id`. Deploy = Cloudflare OpenNext `smart-senior-web` (Next) + legacy Pages `smart-senior` + Supabase `bmughdoqdsjfstxnnjks`. **Nie Vercel.**
+
+## Po zadaniu
+
+1. Memory Check (checklist).  
+2. Write-Back wg A–F albo skip.  
+3. Hard gate → HITL, nie domysły.

@@ -1,9 +1,10 @@
 # Pakiet Spokoju (SeniorSmart) — MASTER CONTEXT
 
-> **Źródło prawdy technicznego stanu aplikacji.** Aktualizuj **na koniec sesji**, gdy zmienia się zachowanie w produkcji, API, flow użytkownika lub architektura.  
-> Security policy: [`SECURITY.md`](../SECURITY.md). Szybki start: [`README.md`](../README.md) (gdy powstanie).
+> **Źródło prawdy technicznego stanu aplikacji** (co jest zbudowane, jak deployować, schema/RLS).  
+> **Decyzje HLD / NFR / roadmapa:** [`HLD.md`](HLD.md) — nie duplikuj tu ekonomiki ani pełnego HLD.  
+> Security policy: [`SECURITY.md`](../SECURITY.md). Strażnik: reguła `architectural-guardian`.
 
-**Ostatnia aktualizacja treści:** 2026-07-17 — reguła clean-scalable-code (always on) + skill
+**Ostatnia aktualizacja treści:** 2026-08-13 — retencja głosówek 30 dni + enum `voice_missing_context` + archiwum `patients`
 
 ---
 
@@ -20,14 +21,17 @@ Platforma **B2B SaaS dla domów opieki**:
 
 ## 2. Architektura „Secure by Design”
 
-Projekt celuje w zgodność z **RODO**, **ISO 27001**, **NIS2**.
+Projekt celuje w zgodność z **RODO**, **ISO 27001**, **NIS2**, **EU AI Act**.  
+HLD (NFR, flow Guardrails, degraded mode, DPA, roadmapa): [`HLD.md`](HLD.md).  
+Checklisty norma → kod: skill [`compliance-medtech`](../.agents/skills/compliance-medtech/SKILL.md); codziennie [`secure-by-design`](../.agents/skills/secure-by-design/SKILL.md); SDD: [`architectural-guardian`](../.agents/skills/architectural-guardian/SKILL.md).  
+**Routing agenta:** [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md) + reguła always-on `living-context` (Konstytucja → Skill Lenses → HITL).
 
 ### Zasada krytyczna
 
 **Żadne wrażliwe dane medyczne nie mogą być przetwarzane, parsowane ani filtrowane po stronie frontendu (przeglądarki).**  
 Cała logika biznesowa, autoryzacja oraz czyszczenie danych (Guardrails) odbywa się w **Supabase Edge Functions** (i ewentualnie innych środowiskach backendowych), nie w Alpine.js / HTML.
 
-Frontend: UI, stany, wywołania API z tokenem użytkownika.  
+Frontend: UI, stany, wywołania API z tokenem użytkownika. Kanon = Next.js (`/web`); legacy Alpine nie rozszerzać.  
 Backend: Whisper / GPT, kategoryzacja, empatyczne podsumowania, walidacja JWT, zapis do DB.
 
 ---
@@ -36,11 +40,23 @@ Backend: Whisper / GPT, kategoryzacja, empatyczne podsumowania, walidacja JWT, z
 
 | Warstwa | Technologia | Artefakty |
 |--------|-------------|-----------|
-| **Frontend** | HTML5, Tailwind CDN, Alpine.js | `index.html`, `src/app.js` |
-| **Hosting frontu** | Cloudflare Pages | projekt **`smart-senior`** (osobny od DFCMS / `dfcms`) |
+| **Frontend** | Next.js App Router + Tailwind + TS (`/web`, ADR-008) | `web/src/app/**` |
+| **Hosting frontu** | Cloudflare OpenNext — Worker **`smart-senior-web`**. Legacy Pages `smart-senior`. **Zakaz Vercel.** | izolacja od DFCMS |
 | **Backend / DB** | Supabase (PostgreSQL, Auth, RLS) | `supabase/migrations/`, projekt **SeniorSmart** |
 | **Logika serwerowa** | Supabase Edge Functions (Deno) | `supabase/functions/` *(planowane)* |
 | **AI** | OpenAI — Whisper (transkrypcja), GPT-4o (kategoryzacja + podsumowania + System Prompt / Guardrails) | tylko Edge / backend |
+
+### Struktura frontendu
+
+```
+web/src/app/               → Next.js App Router (Faza 2)
+  (family)/rodzina/        → portal rodziny (mobile-first)
+  (staff)/placowka/        → portal personelu (podgląd + uprawnienia)
+index.html                 → LEGACY Alpine — nie rozszerzaj
+src/js/                    → LEGACY — do cutoveru
+```
+
+Konfiguracja Next: `web/.env.local` (`NEXT_PUBLIC_SUPABASE_*` only). Legacy: `src/js/config.js`.
 
 **Nie mylić z DFCMS:** ten repozytorium i Pages project są niezależne od `dfopscms` / `dfcms.pl`.
 
@@ -51,10 +67,11 @@ Backend: Whisper / GPT, kategoryzacja, empatyczne podsumowania, walidacja JWT, z
 | Obszar | Stan obecny (MVP) |
 |--------|-------------------|
 | **Git** | `https://github.com/darkov89/smart-senior` — gałąź `main` |
-| **Cloudflare Pages** | projekt **`smart-senior`** → `https://smart-senior.pages.dev` (+ preview `*.smart-senior.pages.dev`) |
+| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** → `https://smart-senior.pages.dev` |
+| **Cloudflare Next.js** | Worker **`smart-senior-web`** (`@opennextjs/cloudflare`) — deploy po cutoverze |
 | **Supabase `project-ref`** | **`bmughdoqdsjfstxnnjks`** (nazwa: SeniorSmart, region: North EU / Stockholm) |
 | **Org Supabase** | osobna od dfops (`fhjokrekpzahqcskjmul`) |
-| **Lokalny front** | pliki statyczne; deploy: `npm run deploy` / `wrangler pages deploy . --project-name=smart-senior` |
+| **Lokalny front** | `npm run web:dev` (`web/`); legacy: `npm run deploy:legacy` |
 | **Lokalny Supabase** | **bez** wymogu `supabase start` na start — link do remote + `supabase db push` |
 
 Przed `db push` / `functions deploy` zawsze sprawdź:
@@ -70,7 +87,8 @@ Sekrety lokalne: `.env` (gitignored). Szablon: `.env.example`.
 
 ## 5. Multi-tenancy i model danych
 
-Każdy dom opieki = wiersz w `organizations` (`organization_id` na rekordach tenantowych).
+Każdy dom opieki = wiersz w `organizations` (`organization_id` na rekordach tenantowych).  
+Słowny opis „co jak działa i po co”: [`.agents/skills/supabase-seniorsmart/references/schema-seniorsmart.md`](../.agents/skills/supabase-seniorsmart/references/schema-seniorsmart.md).
 
 ### Enum `app_role`
 
@@ -80,22 +98,46 @@ Każdy dom opieki = wiersz w `organizations` (`organization_id` na rekordach ten
 
 `voice_note` | `hardware_sensor` | `ai_report`
 
+### Enum `voice_missing_context`
+
+`mood` | `meal` | `sleep` | `activity` — tablica na `voice_conversations.missing_contexts`
+
 ### Tabele kluczowe
 
 | Tabela | Rola |
 |--------|------|
 | `organizations` | Domy opieki (`name`, `settings_json`) |
 | `profiles` | Rozszerzenie `auth.users` — `organization_id`, `role`, `full_name` |
-| `patients` | Pensjonariusze — minimalizacja danych (`first_name`, `last_name_initial`, `pesel_hash`, `room`) |
-| `daily_logs` | Notatki / sensory / raporty AI — `raw_data`, `processed_data` |
+| `patients` | Pensjonariusze — minimalizacja (`first_name`, `last_name_initial`, `pesel_hash`, `room`); opcjonalnie `archived_at` / `archived_reason` |
+| `daily_logs` | Notatki / sensory / raporty AI — `raw_data`, `processed_data`, **`is_ai_generated`**, **`approved_by_user_id`** (EU AI Act HITL) |
+| `voice_conversations` | Stan rozmowy (jeden otwarty wątek / pacjent / `local_date`); `missing_contexts voice_missing_context[]` |
+| `voice_conversation_turns` | Tury: transkrypcja personelu lub pytanie asystenta |
+| `voice_draft_notes` | Surowe głosówki przed wieczornym merge — `transcript`, `staff_internal_notes`, `family_safe_partial`; cleanup 30 dni po merge/discard |
+| `telemetry_logs` | Legacy agregaty BLE; family bez SELECT |
+| `consent_ledger` | Zgody RODO; purpose `wearable_family_access` (ADR-009) |
+| `polar_connections` | Link Polar user — bez tokenów OAuth |
+| `polar_daily_activity` / `polar_sleep_nights` / `polar_heart_rate_daily` / `polar_hrv_nights` | Agregaty dobowe Polar 360 (non-MD) |
 | `family_connections` | Powiązanie profilu rodziny ↔ pacjent |
 | `audit_logs` | Audyt ISO — kto, kiedy, IP, UPDATE/DELETE |
 
-Migracja bazowa: `supabase/migrations/20260717193117_init_multi_tenant_schema.sql`.
+Migracja bazowa: `supabase/migrations/20260717193117_init_multi_tenant_schema.sql`.  
+Telemetria: `20260811185009_add_telemetry_logs.sql`.  
+AI Act columns: `20260812080000_add_ai_compliance.sql`.  
+Bramki IoT (historyczna): `20260812081000_iot_gateways.sql` — **DROP** `20260813132832_drop_iot_gateways.sql` (ADR-007).  
+Polar + zgody: `20260813134500_polar_wearable_consent.sql` (ADR-009).  
+Głos (ADR-010): `20260813135918_voice_conversation_drafts.sql`.  
+Enum + retencja: `20260813145248_voice_enum_and_retention.sql` — `cleanup_old_voice_drafts()` tylko `service_role`.
 
 ### Widok rodzinny
 
-`family_daily_reports` — tylko bezpieczne kolumny (`processed_data`, bez `raw_data`), filtrowane po `family_connections`.
+`family_daily_reports` — `processed_data`, bez `raw_data`, po `family_connections`.  
+`family_wearable_comfort` — kroki / sen / sleep_score; **bez** BPM i HRV (`security_invoker`).  
+**Family nie ma SELECT na `telemetry_logs`.** Metryki Polar: tylko z przypisaniem **i** aktywną zgodą `wearable_family_access`.
+
+### Retencja (live)
+
+- `patients.archived_at` / `archived_reason` — miękka archiwizacja (`deceased` \| `left_facility` \| `gdpr_request`). Rodzina: brak SELECT (helper `family_can_access_patient` + widoki). Personel: SELECT historii OK; INSERT/UPDATE opieki tylko gdy `patient_is_active`. Twarde usunięcie = `DELETE patients` (CASCADE; `audit_logs.old_data` na DELETE opieki = `[REDACTED DUE TO GDPR]`).
+- `cleanup_old_voice_drafts()` — surowe `voice_*` merged/discarded (rozmowy: merged/abandoned) starsze niż 30 dni. `pg_cron` job `cleanup-old-voice-drafts` o 03:00 Europe/Warsaw; `GRANT EXECUTE` dla `postgres` + `service_role`. Peace Letter (`daily_logs`) bez zmian.
 
 ---
 
@@ -107,32 +149,74 @@ Migracja bazowa: `supabase/migrations/20260717193117_init_multi_tenant_schema.sq
 |------|--------|
 | `superadmin` | Pełny dostęp systemowy |
 | `org_admin` / `nurse` | R/W wyłącznie w swoim `organization_id` |
-| `family` | Odczyt wyselekcjonowanych raportów przez `family_daily_reports` (bez bezpośredniego SELECT `raw_data` z `daily_logs`) dla przypisanych pacjentów |
+| `family` | `family_daily_reports`; Polar tylko z zgodą (`family_wearable_comfort` / tabele `polar_*`); nigdy `raw_data`, nigdy tabele `voice_*` |
 | `iot_device` | Tylko **INSERT** do `daily_logs` (`typ_logu = hardware_sensor`) w swojej org |
 
-Helpery SQL (SECURITY DEFINER + `search_path = public`): `current_profile_role()`, `current_organization_id()`, `is_superadmin()`, `is_org_staff()`, `is_family()`, `is_iot_device()`, `family_can_access_patient(uuid)`.
+**`telemetry_logs`:** SELECT dla `org_admin` / `nurse` + `superadmin`; family — brak SELECT.
 
-Trigger audytu: `audit_row_change()` na UPDATE/DELETE (organizations, profiles, patients, daily_logs, family_connections).
+**Polar metryki (ADR-009):**  
+- family: SELECT + assignment + `family_has_wearable_consent` + tenant  
+- `org_admin` / `nurse`: SELECT w swojej org (Big Picture) — bez zgody ledger  
+- zapisy: Edge `service_role`  
+- superadmin ALL
+
+**`polar_connections`:** superadmin + `org_admin` (swoja org). Family — brak. Tokeny OAuth nie w tej tabeli.
+
+**`consent_ledger`:** superadmin ALL; `org_admin` R/W swojej org; family SELECT własnych wierszy (bez INSERT).
+
+**`voice_conversations` / `voice_conversation_turns` / `voice_draft_notes` (ADR-010):** superadmin ALL; `org_admin` / `nurse` R/W w swojej org; **family — brak SELECT**. Transkryptów nie haszować (ADR-005). Peace Letter nadal tylko `daily_logs` po merge + `approved_by_user_id`.
+
+**Autoryzacja RLS (ADR-006):** w 100% z **Custom JWT Claims** (`app_metadata.role`, `app_metadata.organization_id`) wstrzykiwanych przez Auth Hook `custom_access_token_hook`. Polityki porównują `(auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid` z kolumną tenanta — bez lookupu `profiles` na wiersz.
+
+Helpery SECURITY DEFINER **pozostawione:** `family_can_access_patient(uuid)`, `family_has_wearable_consent(uuid)`. Trigger audytu: `audit_row_change()`.
+
+**Onboarding B2B:** Edge `onboard-organization` (tylko `superadmin`) — INSERT `organizations` + `auth.admin.inviteUserByEmail` + profil `org_admin`.
+
+**Auth Hook:** aktywować w Dashboard (Authentication → Hooks → Custom Access Token). Po zmianie roli/org — refresh sesji.
 
 ### Zasady kodowania (Cursor / agenci)
 
 1. Nowa tabela SQL → zawsze RLS + polityki.
-2. Edge Functions (TS) → zawsze weryfikacja JWT Supabase Auth przed akcją.
-3. Zapytania tenantowe → filtr `organization_id` aktualnego użytkownika (poza świadomym Service Role).
-4. Frontend → proste stany Alpine; zero logiki medycznej / Guardrails w przeglądarce.
+2. Edge Functions (TS) → zawsze weryfikacja JWT Supabase Auth przed akcją (wyjątek Faza 4: webhook Polar z weryfikacją podpisu producenta — nie Bearer bramki).
+3. Zapytania tenantowe → RLS z JWT `app_metadata.organization_id` (poza świadomym Service Role).
+4. Frontend → Next.js w `/web`; zero logiki medycznej / Guardrails w przeglądarce. Legacy Alpine nie rozszerzaj.
 5. **Service role / secret keys** nigdy w statycznym froncie ani w Pages (public).
 6. **Czystość i skalowalność (obowiązkowe):** kod w najczystszej, skalowalnej formie — jedna odpowiedzialność, jawne nazwy, małe moduły, brak pomijanych błędów, konfiguracja poza logiką. Szczegóły: reguła Cursor `.cursor/rules/clean-scalable-code.mdc` + skill `.agents/skills/clean-scalable-code`.
 
 ---
 
-## 7. AI (planowane)
+## 7. AI (planowane + kontrakt Fazy 5)
 
 | Model | Użycie | Gdzie |
 |-------|--------|-------|
-| Whisper | Transkrypcja głosowa | Edge Function |
-| GPT-4o | Kategoryzacja + empatyczne podsumowania + System Prompt / Guardrails | Edge Function |
+| Whisper | Transkrypcja głosowa | Edge Function (jeszcze nie prod) |
+| GPT-4o | Asystent konwersacyjny + Guardrails (klinika/godność) + wieczorny merge | Edge Function (jeszcze nie prod) |
 
-`raw_data` może zawierać treść roboczą; rodziny i front publiczny widzą wyłącznie `processed_data` po pipeline AI.
+**Przepływ (ADR-010):** Whisper → tura JSON (`follow_up` \| `ready_for_draft` \| `blocked`) → `voice_draft_notes` → CRON `merge-daily-peace-letters` → `daily_logs` → HITL `approved_by_user_id`.  
+Rodziny i front publiczny widzą wyłącznie `processed_data` po pipeline AI. Drafty / transkrypty — tylko personel.
+
+**EU AI Act (schema):** `daily_logs.is_ai_generated` (oznaczenie Art. 50) + `daily_logs.approved_by_user_id` (human oversight przed Peace Letter).  
+**TDD Guardrails:** `supabase/functions/tests/guardrails.test.ts` — zaślepka heurystyczna (follow-up, żargon, godność, injection); produkcyjny LLM Edge nadal do podłączenia.  
+**System Prompt:** `.cursor/rules/ai-prompt-guardrails.mdc` §7.
+
+**Telemetria → Peace Letter:** skill `.agents/skills/telemetry-context-provider/` — `polar_*` (preferowane) / `telemetry_logs` (legacy); **non-MD**.
+
+---
+
+## 7a. Telemetria (ADR-007 — Polar; BLE ingest wycofany)
+
+| Element | Opis |
+|---------|------|
+| Kierunek | Polar AccessLink cloud-to-cloud |
+| OAuth | Edge `polar-oauth` (`verify_jwt=false`; start = JWT staff; callback = signed state) |
+| Webhook | Edge `polar-webhook` — HMAC `Polar-Webhook-Signature`; UPSERT `polar_*` przez `service_role` |
+| Tokeny | `polar_oauth_secrets` — brak GRANT dla authenticated |
+| Wycofane | tabela `iot_gateways`, Edge `ingest-telemetry`, Bearer bramki |
+| Magazyn | `polar_*` (kanon) + `telemetry_logs` (legacy) |
+| Client SELECT Polar | tylko family + zgoda + assignment (ADR-009) |
+| Personel / PostgREST | brak SELECT metryk Polar |
+| Cel | Wzbogacenie notatek głosowych — nie zastąpienie |
+| Non-MD / MDR | Komfort i samopoczucie; Peace Letter bez surowych BPM |
 
 ---
 
@@ -140,22 +224,23 @@ Trigger audytu: `audit_row_change()` na UPDATE/DELETE (organizations, profiles, 
 
 | Co | Jak |
 |----|-----|
-| **Front (Cloudflare)** | `npm run deploy` → Pages `smart-senior` (**nie** `dfcms` / `dfopscms`) |
+| **Front Next.js** | `cd web && npm run deploy` → Worker `smart-senior-web` (OpenNext). **Nie Vercel.** Cutover jeszcze nie zrobiony. |
+| **Front legacy** | `npm run deploy:legacy` → Pages `smart-senior` (**nie** `dfcms`) |
 | **DB** | `npx supabase db push` (po sprawdzeniu `project-ref`) |
-| **Edge Functions** | `npx supabase functions deploy <name>` *(gdy powstaną)* |
-| **Git** | `git push origin main` — **nie** deployuje automatycznie Supabase; Pages na razie przez Wrangler CLI (Git Provider: No) |
+| **Edge Functions** | `npx supabase functions deploy <name>` — m.in. `onboard-organization`, `polar-oauth`, `polar-webhook` |
+| **Git** | `git push origin main` — **nie** deployuje automatycznie Supabase ani Cloudflare |
 
 ---
 
 ## 9. Diagram (skrót)
 
 ```
-Pielęgniarka / Rodzina / IoT
-    → Cloudflare Pages (HTML + Alpine) — tylko UI
+Pielęgniarka / Rodzina / Polar AccessLink (Faza 4)
+    → Front: Next.js `/web` na Cloudflare OpenNext (legacy Pages Alpine do cutoveru)
     → Supabase Auth (JWT)
     → PostgREST + RLS (tenant)
-    → Edge Functions (AI Guardrails, Whisper, GPT) — wrażliwe dane
-    → PostgreSQL (organizations … audit_logs)
+    → Edge Functions (AI Guardrails, Whisper, GPT, Polar) — wrażliwe dane
+    → PostgreSQL (organizations … voice_* … polar_* … audit_logs)
 ```
 
 ---
@@ -164,5 +249,35 @@ Pielęgniarka / Rodzina / IoT
 
 | Data | Zmiana |
 |------|--------|
+| 2026-08-13 | Słowny opis schematu (co / jak / po co) w `schema-seniorsmart.md`; pointer w §5 |
+| 2026-07-19 | Odchudzenie skilli → pointer + substancja (bez straty checklist/ops/copy map); compliance refs bez zmian |
+| 2026-07-19 | Roster person (Architekt/Security/Compliance/Dev/UI/Platforma) w regule `living-context` |
+| 2026-07-19 | HLD v2.1.0 (`docs/HLD.md`); Strażnik Architektury (reguła + skill); triada HLD / MASTER_CONTEXT / SECURITY; challenge: region Stockholm (nie Frankfurt), `consent_ledger` planowane |
 | 2026-07-17 | Init repo, migracja multi-tenant + RLS + audit, Pages `smart-senior`, GitHub `darkov89/smart-senior`, docs/skills/security jak w DFCMS |
 | 2026-07-17 | Reguła always-on `clean-scalable-code` + skill — obowiązkowe najlepsze praktyki czystości i skalowalności |
+| 2026-07-17 | Fundament frontu: `src/js/{services,stores,utils}`, `authStore` (login/logout/onAuthStateChange + profil), shell `index.html` z formularzem logowania |
+| 2026-07-17 | Reguła always-on `product-ui-craft` + skill — premium UI/UX, zero żargonu/placeholderów w UI, obowiązek proponowania lepszej wersji promptu |
+| 2026-07-19 | Skill `compliance-medtech` — kluczowe obowiązki GDPR/RODO, ISO 27001 Annex A, NIS2 Art. 21/23 z mapą na RLS/audit/Edge/deploy |
+| 2026-07-31 | `compliance-medtech`: reference EU AI Act (risk class, Art. 5, oversight, Art. 50, GPAI) z mapą na Guardrails / human-in-the-loop |
+| 2026-07-31 | Agent Workflow: Single Developer + Skill Lenses — `living-context` router, HITL Fail Secure, on-demand rules (compliance, AI guardrails, supabase, cloudflare), `docs/AGENT_WORKFLOW.md` |
+| 2026-07-31 | Dedup: always-on + AI skille = pointery; SoT w `.mdc`; compliance/supabase/cf skills = głębia; `AGENT_WORKFLOW` mermaid decision graph |
+| 2026-08-10 | Izolacja FE/BE: `frontend-js.mdc` (Vanilla ESM+JSDoc), `backend-ts.mdc` (strict Deno TS); Red Team `guardrails-tester.mdc` + szkielet `supabase/functions/tests/guardrails.test.ts`; pointer w `clean-scalable-code`; roster w `AGENT_WORKFLOW` |
+| 2026-08-11 | Telemetria BLE (HLD 2.2.0): migracja `telemetry_logs`, Edge `ingest-telemetry`, skill `telemetry-context-provider` (non-MD Guardrails); family bez SELECT HR |
+| 2026-08-11 | Deploy: Edge `ingest-telemetry` ACTIVE na `bmughdoqdsjfstxnnjks` (`verify_jwt=false`, secret `TELEMETRY_INGEST_TOKEN`); migracja DB **zablokowana** — hasło Postgres w `.env` / Management API 28P01 (wymaga resetu DB password w Dashboard) |
+| 2026-08-11 | Second Brain: `docs/adr/` + template, reguła `second-brain-librarian.mdc`, Write-Back w `living-context`, `docs/LESSONS_LEARNED.md`; roster w `AGENT_WORKFLOW` |
+| 2026-08-12 | Domknięcie luk: `daily_logs.is_ai_generated` + `approved_by_user_id`; tabela `iot_gateways` + ingest per-token (ADR-002); Guardrails TDD Green (zaślepka); usunięto globalny `TELEMETRY_INGEST_TOKEN` |
+| 2026-08-12 | `db push` OK na `bmughdoqdsjfstxnnjks`: `telemetry_logs`, AI Act columns, `iot_gateways` |
+| 2026-08-12 | Redeploy `ingest-telemetry` v3 (auth via `iot_gateways`); unset `TELEMETRY_INGEST_TOKEN` z secrets + lokalnego `.env` |
+| 2026-08-12 | `AGENT_WORKFLOW` v2026-08-12: pełny graf (Write-Back, FE/BE, Tester, LESSONS); audit plików — usunięty alias `telemetry-context-provider.md`; glob Tester + `tests/` |
+| 2026-08-12 | Second Brain 2.0 (ADR-003): Memory Lifecycle, checklist Write-Back, selective retrieval, Contradiction Protocol; Librarian 2.0; living-context + AGENT_WORKFLOW |
+| 2026-08-12 | Requirement Traceability (ADR-004): `docs/REQUIREMENTS_TRACEABILITY.md` seeded from HLD; Librarian klasa F; REQ retrieval + verification gate w AGENT_WORKFLOW |
+| 2026-08-12 | `docs/AGENT_WORKFLOW_README.md` — przewodnik dla laika (jak działa model agentów / Second Brain) |
+| 2026-08-13 | ADR-005: PESEL/ID → SHA-256+salt; zakaz hashowania `raw_data`/`processed_data`; brak CLE; at-rest/in-transit Supabase + RLS (`SECURITY.md`, `secure-by-design`) |
+| 2026-08-13 | ADR-006: RLS z Custom JWT Claims (`custom_access_token_hook`); drop SECURITY DEFINER helperów RLS; Edge `onboard-organization`; **wymaga włączenia hooka w Dashboard** |
+| 2026-08-13 | Deploy: `db push` `20260813101000_jwt_claims_hook`; Edge `onboard-organization` v1 ACTIVE. **Hook Auth jeszcze do włączenia ręcznie w Dashboard** |
+| 2026-08-13 | Faza 1: ADR-007 Polar; DROP `iot_gateways`; undeploy `ingest-telemetry`; HLD 2.3.0 |
+| 2026-08-13 | Faza 2: Next.js App Router w `/web` (portale `/rodzina`, `/placowka`); hosting Cloudflare OpenNext (`smart-senior-web`); zakaz Vercel; HLD 2.3.1 |
+| 2026-08-13 | Faza 3: `db push` `20260813134500_polar_wearable_consent`; ADR-009; HLD 2.3.2 |
+| 2026-08-13 | Faza 3 zamknięta: staff SELECT Polar (opcja A) `20260813135255_polar_staff_access`. Faza 4 szkielet: `polar-oauth`, `polar-webhook`, `polar_oauth_secrets`. |
+| 2026-08-13 | Faza 5: ADR-010 Conversational Voice; `db push` `20260813135918_voice_conversation_drafts`; HLD 2.4.0; Guardrails stub 6/6. Whisper/GPT Edge i CRON `merge-daily-peace-letters` — jeszcze nie prod. |
+| 2026-08-13 | Retencja RODO: enum `voice_missing_context`; `patients.archived_*` + RLS `patient_is_active`; audit DELETE zredagowany; `cleanup_old_voice_drafts()` + pg_cron 03:00 Warsaw; HLD 2.4.1. `db push` `20260813145248` OK. |

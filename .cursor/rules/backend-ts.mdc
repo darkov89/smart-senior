@@ -1,0 +1,25 @@
+---
+description: >-
+  To jest środowisko Deno/Supabase Edge Functions. Używaj wyłącznie TypeScript.
+  Wymagane ścisłe typowanie, interfejsy i bezwzględne unikanie typu `any`.
+globs: supabase/functions/**/*.ts
+alwaysApply: false
+---
+
+# Backend — TypeScript (Deno / Edge Functions)
+
+**Środowisko:** Supabase Edge Functions (Deno). Jedyna warstwa, w której żyje logika medyczna, Guardrails i sekrety LLM.
+
+## Obowiązkowe
+
+- Wyłącznie **TypeScript** (`.ts`) — ścisłe typowanie, jawne interfejsy / typy wynikowe.
+- **Zakaz `any`** — używaj `unknown` + wąskie type guardy / walidację wejścia.
+- Szkielet: verify JWT → validate input → business logic → typed response.
+- Sekrety wyłącznie z `Deno.env.get()`; współdzielony kod w `_shared/`.
+
+## Preferowane wzorce
+
+- Structured Outputs / JSON Schema dla odpowiedzi LLM
+- Family channel: wyłącznie `processed_data` — nigdy `raw_data`
+- Testy Guardrails: `supabase/functions/tests/` + reguła `guardrails-tester.mdc`
+- Szczegóły czystości: `clean-scalable-code.mdc`; ops: `supabase-seniorsmart.mdc`

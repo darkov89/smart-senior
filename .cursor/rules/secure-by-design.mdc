@@ -1,20 +1,45 @@
 ---
-description: Secure by Design — RODO/ISO/NIS2, RLS, brak logiki medycznej na froncie
+description: ZAWSZE AKTYWNE: Fundamentalne zasady inżynierii bezpieczeństwa (RLS, Edge, mikro-wymogi RODO i EU AI Act).
 alwaysApply: true
 ---
 
-# Secure by Design
+# Secure by Design - Fundamenty SmartSenior
 
-Pełna polityka: [`SECURITY.md`](../../SECURITY.md). Kontekst produktu: [`docs/MASTER_CONTEXT.md`](../../docs/MASTER_CONTEXT.md).
+Projekt przetwarza dane wrażliwe (zdrowotne) i podlega surowym regulacjom. Poniższe zasady inżynierskie są nienaruszalne.
 
-## Non-negotiables
+**Źródło prawdy tej reguły = ten plik** (+ [`SECURITY.md`](../../SECURITY.md)). Skill w `.agents/skills/` to pointer.
 
-1. **Frontend = UI only.** Żadnego parsowania / filtrowania / Guardrails na danych medycznych w przeglądarce (Alpine.js). To robi Edge Function.
-2. **Każda nowa tabela → RLS** + polityki pod `app_role` (`superadmin`, `org_admin`, `nurse`, `family`, `iot_device`).
-3. **Tenant filter:** `organization_id` zgodny z profilem użytkownika (poza `superadmin`).
-4. **Family:** tylko `processed_data` (widok `family_daily_reports`), nigdy `raw_data` w kliencie rodziny.
-5. **IoT:** wyłącznie INSERT logów sensorowych.
-6. **Secrets:** `service_role`, DB password, OpenAI, access tokeny — nie w HTML/JS/Pages public / git.
-7. **Edge Functions:** weryfikuj JWT (lub token urządzenia) przed akcją.
-8. **Audit:** UPDATE/DELETE tenantowych danych → `audit_logs` (trigger lub równoważny mechanizm).
-9. **Nie mieszaj z DFCMS** — osobny Pages project i osobny Supabase.
+## 1. Architektura i Przepływ Danych (RLS & Edge)
+- **Zero Zaufania dla Frontendu:** Klient (przeglądarka) nigdy nie filtruje wrażliwych danych. Cała logika medyczna i filtracja danych odbywa się na backendzie (Supabase RLS, Edge Functions).
+- **Row Level Security (RLS):** Każda tabela w Supabase MUSI mieć włączone i rygorystycznie skonfigurowane RLS oparte na `organization_id` (tenant placówki) oraz weryfikacji JWT (`auth.uid()` / helpery RLS).
+- **Separacja Danych (Multi-tenant):** Żadne zapytanie nie ma prawa "wyciec" poza przestrzeń (tenant) przypisaną do danej placówki (Domu Opieki). Użytkownik `family` nie ma dostępu do `raw_data` ani tabel `voice_*`.
+
+## 2. Inżynieria EU AI Act (Mikro-wymogi Always-On)
+- **Znakowanie AI:** Wynik LLM prezentowany użytkownikowi MUSI być oznaczony (np. `is_ai_generated: true`).
+- **Sanityzacja Promptów:** W promptach do LLM **zakaz** surowych identyfikatorów pacjenta (PESEL, pełne imię i nazwisko powiązane ze stanem zdrowia).
+- **Human Oversight Trigger:** Decyzje AI wpływające na opiekę wymagają zatwierdzenia (`approved_by_user_id`).
+
+## 3. Kryptografia danych (ADR-005) — twarde
+- **Identyfikatory PII (PESEL i podobne):** wyłącznie `SHA-256 + salt` (np. kolumna `pesel_hash`). **Zakaz** plaintext PESEL w DB, UI, logach i promptach.
+- **ABSOLUTNY ZAKAZ hashowania treści medycznej / notatek:** nie haszuj, nie „digestuj” i nie proponuj hashowania `raw_data`, `processed_data` ani innych narracyjnych pól opieki. Treść musi pozostać czytelna dla uprawnionego personelu pod RLS.
+- **Ochrona treści klinicznej:** RLS + minimalizacja na froncie + domyślne **at-rest / in-transit** Supabase — **nie** application-level CLE na tym etapie.
+- Jeśli agent chce „zahashować notatki dla bezpieczeństwa” → **odrzuć** i wskaż ADR-005 / `SECURITY.md`.
+
+## 4. Zarządzanie Sekretami
+- Nigdy nie hardkoduj kluczy API, haseł ani tokenów w kodzie (FE/BE).
+- Edge: `Deno.env.get()`; lokalnie `.env` gitignored. Frontend: wyłącznie publishable/anon key.
+- Deploy tylko Cloudflare Pages **`smart-senior`** + Supabase **`bmughdoqdsjfstxnnjks`** (nie DFCMS).
+
+## Preferred patterns
+
+| Need | Pattern |
+|------|---------|
+| Family reports | `family_daily_reports` / Edge DTO — tylko `processed_data` |
+| Voice → summary | Edge: Whisper → tura follow-up/draft (`voice_*`) → wieczorny merge → `daily_logs` + `is_ai_generated` |
+| Human oversight | `approved_by_user_id` przed kanałem rodzinnym |
+| Staff UI | Next.js (`/web`) + PostgREST pod RLS; zero lokalnego „AI cleanup”. Legacy Alpine nie rozszerzaj. |
+| Secrets | Supabase Secrets / CF env; `.env` lokalnie |
+| PESEL / ID PII | `SHA-256 + salt` → `pesel_hash` (nigdy plaintext) |
+| Treść medyczna | **Nie hash**; RLS + platform crypto (ADR-005) |
+
+**PAMIĘTAJ:** Złamanie zasad → protokół w `living-context.mdc` (`🛑 COMPLIANCE / ARCH CHECK REQUIRED`). DB/LLM → załaduj `@compliance-medtech.mdc` / `@ai-prompt-guardrails.mdc`.

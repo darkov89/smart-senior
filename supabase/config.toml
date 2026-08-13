@@ -406,3 +406,18 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# B2B onboarding — superadmin JWT required
+[functions.onboard-organization]
+enabled = true
+verify_jwt = true
+
+# Polar AccessLink OAuth — JWT checked in-function (callback has no Bearer)
+[functions.polar-oauth]
+enabled = true
+verify_jwt = false
+
+# Polar AccessLink webhook — HMAC Polar-Webhook-Signature (not end-user JWT)
+[functions.polar-webhook]
+enabled = true
+verify_jwt = false

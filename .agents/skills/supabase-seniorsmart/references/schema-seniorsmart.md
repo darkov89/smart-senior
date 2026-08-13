@@ -1,9 +1,77 @@
 # Schema map — SeniorSmart
 
+Słownik kolumn i RLS: poniżej. Decyzje: HLD §C / ADR-006–010. Stan live: `docs/MASTER_CONTEXT.md` §5–6.
+
+## Jak działa i po co
+
+Baza trzyma **jeden produkt, dwa kanały**. Personel domu opieki dyktuje dzień pensjonariusza. Rodzina dostaje wieczorem **Peace Letter** — spokojne podsumowanie bez żargonu klinicznego i bez surowych transkryptów. Multi-tenant: każdy dom to `organizations`; prawie każdy wiersz ma `organization_id`. PostgreSQL RLS odcina obce placówki na każdym zapytaniu z klienta. Logika medyczna i Guardrails żyją w Edge, nie w przeglądarce.
+
+### Kto jest kim
+
+Konto Auth (`auth.users`) ma profil w `profiles`: rola + placówka. Rola i `organization_id` trafiają do JWT (`app_metadata`) przez Auth Hook `custom_access_token_hook` — polityki RLS czytają token, nie robią lookupu `profiles` na każdy wiersz (ADR-006).
+
+- **superadmin** — onboarding placówek, pełny dostęp systemowy.
+- **org_admin** — administracja domu: personel, zgody, powiązania Polar, archiwizacja pensjonariusza.
+- **nurse** — codzienna opieka: głosówki, notatki, podgląd pensjonariuszy swojej org.
+- **family** — tylko przypisani pensjonariusze i tylko treść już przygotowana dla rodziny.
+- **iot_device** — wąski INSERT do `daily_logs` (`hardware_sensor`); bramki BLE wycofane.
+
+Przypisanie rodziny do pensjonariusza to `family_connections`. Samo konto `family` nie wystarcza — bez wiersza powiązania RLS nic nie pokaże.
+
+### Pensjonariusz (minimalizacja)
+
+`patients` nie jest kartoteką medyczną. Imię, inicjał nazwiska, pokój, opcjonalnie `pesel_hash` (SHA-256 + salt — nigdy PESEL w plaintext). Treści klinicznej się **nie haszuje** (ADR-005): notatki mają zostać czytelne dla uprawnionego personelu.
+
+`archived_at` / `archived_reason` to miękka blokada (zgon, wypis, wniosek RODO): rodzina traci SELECT, personel nie dopisuje opieki. Twarde usunięcie (Art. 17) = `DELETE` pacjenta — CASCADE znosi głos, Polar, notatki, zgody i powiązania rodziny.
+
+### Dwie warstwy treści
+
+`daily_logs` to kanoniczny dziennik dnia po zatwierdzeniu:
+
+- `raw_data` — surowe / wewnętrzne; **tylko personel**.
+- `processed_data` — Peace Letter; to jedyna narracja, którą rodzina może zobaczyć (widok `family_daily_reports`).
+- `is_ai_generated` — oznaczenie AI (EU AI Act Art. 50).
+- `approved_by_user_id` — człowiek zatwierdził zanim treść pójdzie do rodziny.
+
+Rodzina **nie ma** SELECT na `daily_logs`. Widok celowo nie wystawia `raw_data`, żeby PostgREST nie wyciekł transkryptu.
+
+### Głos → szkic → Peace Letter (ADR-010)
+
+Personel nie dyktuje od razu listu do rodziny. W ciągu dnia żyje osobny, personelowy tor:
+
+1. `voice_conversations` — jeden otwarty wątek na `(pensjonariusz, dzień opieki)`. `missing_contexts` (`mood`, `meal`, `sleep`, `activity`) mówi asystentowi, czego jeszcze brakuje.
+2. `voice_conversation_turns` — tury: transkrypcja Whisper albo krótkie pytanie uzupełniające.
+3. `voice_draft_notes` — surowy szkic. `transcript` zostaje dla personelu. Żargon kliniczny idzie do `staff_internal_notes` (nigdy do rodziny). Kandydat rodzinny — `family_safe_partial` — to jeszcze nie Peace Letter.
+
+Wieczorny merge (Edge CRON, plan) składa szkice dnia w kandydata Peace Letter i zapisuje go do `daily_logs` z `is_ai_generated`. Wysyłka / widoczność rodziny dopiero po `approved_by_user_id`. Tabele `voice_*` są niewidoczne dla family. Transkryptów nie haszujemy. Po merge/discard surowy głos znika po 30 dniach (`cleanup_old_voice_drafts`, cron 03:00 Europe/Warsaw). Peace Letter w `daily_logs` zostaje.
+
+### Polar — komfort, nie diagnostyka (ADR-007/009)
+
+Opaska wzbogaca opis dnia (sen, kroki, samopoczucie). **Nie** zastępuje notatki głosowej i **nie** jest wyrobem medycznym: zero diagnozy, triage, alarmów z tętna.
+
+- `polar_connections` — który pensjonariusz jest spięty z Polar; bez sekretów OAuth.
+- `polar_oauth_secrets` — tokeny AccessLink; tylko Edge / `service_role`, brak GRANT dla klienta.
+- Agregaty dobowe: aktywność, sen, tętno, HRV. Personel widzi je w swojej org (Big Picture, nie pulpit kliniczny). Rodzina — tylko po przypisaniu **i** zgodzie.
+
+`consent_ledger` (purpose `wearable_family_access`) wpisuje `org_admin`. Rodzina nie nadaje sobie zgody. Bezpieczny DTO: widok `family_wearable_comfort` (kroki, sen, `sleep_score`) — **bez BPM i HRV**.
+
+`telemetry_logs` to legacy po bramkach BLE. Family bez SELECT. Tabela `iot_gateways` usunięta.
+
+### Audyt
+
+Trigger `audit_row_change` zapisuje UPDATE/DELETE (kto, kiedy, IP). Klienci tylko czytają `audit_logs`. Przy DELETE danych opieki `old_data` jest zredagowane (`[REDACTED DUE TO GDPR]`), żeby kopia zapasowa audytu nie trzymała treści po żądaniu usunięcia. UPDATE zostawia pełny snapshot (rozliczalność ISO).
+
+---
+
 ## Enums
 
 - `app_role`: `superadmin`, `org_admin`, `nurse`, `family`, `iot_device`
 - `log_type`: `voice_note`, `hardware_sensor`, `ai_report`
+- `voice_conversation_status`: `active`, `awaiting_staff`, `ready_to_merge`, `merged`, `abandoned`
+- `voice_turn_role`: `staff`, `assistant`
+- `voice_draft_status`: `open`, `awaiting_staff`, `ready_to_merge`, `merged`, `discarded`
+- `voice_clinical_handling`: `staff_internal`, `redact`
+- `voice_missing_context`: `mood`, `meal`, `sleep`, `activity`
 
 ## Tables (tenant key)
 
@@ -11,16 +79,51 @@
 |-------|---------------|--------|
 | `organizations` | `id` | `settings_json` |
 | `profiles` | `organization_id` | PK = `auth.users.id` |
-| `patients` | `organization_id` | `pesel_hash`, `last_name_initial` (1 char) |
-| `daily_logs` | `organization_id` | `raw_data` / `processed_data` jsonb |
+| `patients` | `organization_id` | `pesel_hash`, `last_name_initial` (1 char); `archived_at` / `archived_reason` |
+| `daily_logs` | `organization_id` | `raw_data` / `processed_data`; `is_ai_generated`; `approved_by_user_id` |
+| `voice_conversations` | `organization_id` | One open thread per `(patient_id, local_date)`; `missing_contexts voice_missing_context[]`; family: no SELECT |
+| `voice_conversation_turns` | `organization_id` | Staff transcript or assistant follow-up |
+| `voice_draft_notes` | `organization_id` | Raw clips before evening merge; `staff_internal_notes` never family |
+| `telemetry_logs` | `organization_id` | Legacy BLE; family bez SELECT |
+| `consent_ledger` | `organization_id` | purpose `wearable_family_access`; org_admin writes |
+| `polar_connections` | `organization_id` | Polar user link; **no OAuth tokens**; org_admin + superadmin |
+| `polar_daily_activity` | `organization_id` | UNIQUE `(patient_id, local_date)` |
+| `polar_sleep_nights` | `organization_id` | `sleep_score` = comfort, not clinical |
+| `polar_heart_rate_daily` | `organization_id` | daily BPM aggregates |
+| `polar_oauth_secrets` | — | PK = `polar_connection_id`; **no client GRANT** |
 | `family_connections` | `organization_id` | unique `(profile_id, patient_id)` |
 | `audit_logs` | `organization_id` | append via trigger; clients SELECT only |
 
+**Dropped (ADR-007):** `iot_gateways`.
+
 ## Family-safe surface
 
-View `family_daily_reports`: `id`, `patient_id`, `organization_id`, `typ_logu`, `processed_data`, `created_at`  
-Filter: `is_family()` AND `family_can_access_patient(patient_id)`.
+- View `family_daily_reports`: `processed_data` (no `raw_data`).
+- View `family_wearable_comfort` (`security_invoker`): steps / sleep / sleep_score — **no BPM/HRV**.
+- Polar metric tables: family SELECT iff `family_can_access_patient` **and** `family_has_wearable_consent`.
+- `telemetry_logs` — **nie** dla family.
+- `voice_*` — **nie** dla family (ADR-010).
 
 ## Audit
 
-Trigger `audit_row_change` on UPDATE/DELETE for organizations, profiles, patients, daily_logs, family_connections.
+Trigger `audit_row_change` on UPDATE/DELETE including `consent_ledger`, `polar_*`, and `voice_*`.
+
+## RLS (ADR-006 / ADR-009)
+
+Tenant + role from JWT `app_metadata`.  
+SECURITY DEFINER: `family_can_access_patient(uuid)`, `family_has_wearable_consent(uuid)`.  
+Staff: SELECT Polar metrics in own org (`org_admin` / `nurse`). Family SELECT iff assignment **and** wearable consent.  
+OAuth tokens: `polar_oauth_secrets` — **no** GRANT to authenticated.  
+Voice drafts/turns: staff org R/W; family **no** SELECT (ADR-010). Transkryptów nie haszować (ADR-005).
+
+## Retention
+
+- `patients.archived_at` / `archived_reason` (`deceased`, `left_facility`, `gdpr_request`).
+- `cleanup_old_voice_drafts()` — 30 dni; `pg_cron` 03:00 Europe/Warsaw; EXECUTE `postgres` + `service_role`.
+- DELETE `patients` CASCADE: voice + polar + daily_logs + consent + family_connections.
+- DELETE audytu na tabelach opieki: `old_data` zredagowane (`[REDACTED DUE TO GDPR]`).
+- Zarchiwizowany pacjent: rodzina brak SELECT; personel bez INSERT/UPDATE opieki (`patient_is_active`).
+
+## Telemetry ingest
+
+BLE retired (ADR-007). Polar OAuth + webhook = Faza 4. Skill: `telemetry-context-provider`.

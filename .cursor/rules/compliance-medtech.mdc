@@ -1,0 +1,44 @@
+---
+description: >-
+  SKILL ON-DEMAND: Pełne regulacje RODO, ISO 27001, NIS2, EU AI Act, DPIA.
+  Ładuj obowiązkowo przy pracy z danymi osobowymi i audytami.
+alwaysApply: false
+---
+
+# Compliance MedTech (On-Demand Lens)
+
+**Not legal advice.** Soczewka compliance dla Pakiet Spokoju / SmartSenior.
+Gdy living-context każe — **przeczytaj ten plik i skill references zanim napiszesz kod**.
+
+## Obowiązkowe źródła (kolejność)
+
+1. [`SECURITY.md`](../../SECURITY.md)
+2. Skill + references (**głębia SoT norm**): [`.agents/skills/compliance-medtech/SKILL.md`](../../.agents/skills/compliance-medtech/SKILL.md)
+   - [GDPR/RODO](../../.agents/skills/compliance-medtech/references/gdpr-rodo.md)
+   - [ISO 27001](../../.agents/skills/compliance-medtech/references/iso-27001.md)
+   - [NIS2](../../.agents/skills/compliance-medtech/references/nis2.md)
+   - [EU AI Act](../../.agents/skills/compliance-medtech/references/eu-ai-act.md)
+3. HLD §D (compliance posture, AI Act) + MASTER_CONTEXT §2, §5–6
+
+## Human-in-the-Loop (twarde)
+
+Przy niepewności RODO / ISO / NIS2 / AI Act, zmianie RLS/RBAC, nowym przetwarzaniu danych zdrowotnych lub reklasyfikacji AI:
+
+```
+🛑 COMPLIANCE / ARCH CHECK REQUIRED - Czekam na decyzję człowieka
+```
+
+Nie zgaduj podstawy prawnej, retencji ani risk class — **pytaj**.
+
+## Mini-gate (zanim kod)
+
+- [ ] Cel przetwarzania znany; Art. 9 health data uwzględniony
+- [ ] Minimalizacja; family bez `raw_data`
+- [ ] RLS + `organization_id`; audit na UPDATE/DELETE
+- [ ] AI: human oversight + transparentność (Art. 50)
+- [ ] Brak Art. 5 AI Act (zakazy)
+- [ ] Vendor/DPA rozważony (OpenAI, Supabase, CF)
+
+## Output przy review
+
+Verdict: `pass` | `pass-with-gaps` | `fail` + tabela findings (severity × framework × fix: code|process).

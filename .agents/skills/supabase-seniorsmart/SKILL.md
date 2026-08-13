@@ -9,63 +9,41 @@ description: >-
   SeniorSmart project-ref and Secure by Design rules.
 ---
 
-# Supabase — SeniorSmart (Pakiet Spokoju)
+# Supabase — SeniorSmart
 
 ## Before any change
 
-1. Read **`docs/MASTER_CONTEXT.md`** (§2 Secure by Design, §4 środowiska, §5–6 schema/RLS) and **`SECURITY.md`**.
-2. Confirm **linked project** before `db push` / `functions deploy`:
+1. [`MASTER_CONTEXT.md`](../../../docs/MASTER_CONTEXT.md) §4–6 + reguła `secure-by-design`.  
+2. Reguła on-demand: [`.cursor/rules/supabase-seniorsmart.mdc`](../../../.cursor/rules/supabase-seniorsmart.mdc).  
+3. Niepewność RLS/RBAC → HITL stop (`living-context`).  
+4. Potwierdź project-ref:
 
 ```bash
 cat supabase/.temp/project-ref
 # expected: bmughdoqdsjfstxnnjks
 ```
 
-| Environment | `project-ref` | Name |
-|-------------|-----------------|------|
-| **Current (MVP)** | `bmughdoqdsjfstxnnjks` | SeniorSmart |
+| Env | `project-ref` | Name |
+|-----|---------------|------|
+| MVP | `bmughdoqdsjfstxnnjks` | SeniorSmart |
 
-**`git push` does not deploy Supabase.** DB/Edge need explicit CLI.
+`git push` **nie** deployuje Supabase. Token: `SUPABASE_ACCESS_TOKEN` z lokalnego `.env`.
 
-Token: export `SUPABASE_ACCESS_TOKEN` from local `.env` (never commit).
+## Ops (substancja)
 
-## Hard rules (this repo)
-
-- **No medical processing in the browser** — Whisper/GPT/Guardrails only in Edge Functions.
-- **Every table: RLS enabled** + policies for roles.
-- **Family never SELECTs `raw_data`** — use `family_daily_reports` (or Edge response shaped the same way).
-- **`iot_device`:** INSERT-only into `daily_logs` (`hardware_sensor`).
-- **Service role** only in Edge / server — never in `index.html` / `src/app.js`.
-- Prefer **`supabase migration new <name>`** then edit SQL — do not invent migration filenames.
-- After schema/security changes: update **`docs/MASTER_CONTEXT.md`** §10.
-
-## Baseline migration
-
-`supabase/migrations/20260717193117_init_multi_tenant_schema.sql`
-
-Tables: `organizations`, `profiles`, `patients`, `daily_logs`, `family_connections`, `audit_logs`  
-Enums: `app_role`, `log_type`  
-View: `family_daily_reports`
-
-## Deploy
+- Migracje: `supabase migration new <name>` — nie wymyślaj nazw plików.  
+- Baseline: `supabase/migrations/20260717193117_init_multi_tenant_schema.sql`  
+- Helpery RLS: JWT `app_metadata.role` / `organization_id` (ADR-006); `family_can_access_patient(uuid)` dla przypisań rodziny  
+- Telemetria: ADR-007/009 Polar `polar_*`; `telemetry_logs` legacy; **brak** `iot_gateways`  
+- Głos: ADR-010 `voice_*` — family bez SELECT; Peace Letter po merge + HITL; transkryptów nie haszować  
+- Family: widok `family_daily_reports` — nigdy testuj safety przez `select *` z `daily_logs`
 
 ```bash
 export SUPABASE_ACCESS_TOKEN=...   # from .env
 npx supabase db push --yes
-# later:
 npx supabase functions deploy <function-name>
+npx supabase migration list
 ```
 
-## Auth helpers (SQL)
-
-Use existing helpers in policies: `is_superadmin()`, `is_org_staff()`, `is_family()`, `is_iot_device()`, `current_organization_id()`, `family_can_access_patient(uuid)`.
-
-## Verification after changes
-
-- `npx supabase migration list`
-- Spot-check RLS with role-specific users (nurse vs family vs iot).
-- Never test family access by querying `daily_logs` with `select *` expecting safety — column exposure is via view / Edge.
-
-## References
-
-- Schema & RLS map: [references/schema-seniorsmart.md](references/schema-seniorsmart.md)
+Po zmianie schema/security → MASTER_CONTEXT §10.  
+Mapa: [references/schema-seniorsmart.md](references/schema-seniorsmart.md)

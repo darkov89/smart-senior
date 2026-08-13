@@ -2,8 +2,10 @@
   "name": "smart-senior",
   "version": "0.1.0",
   "private": true,
-  "description": "Smart Senior MVP — HTML/Tailwind/Alpine.js + Supabase on Cloudflare Pages",
+  "description": "Pakiet Spokoju — Next.js /web on Cloudflare OpenNext; legacy static Pages",
   "scripts": {
-    "deploy": "wrangler pages deploy . --project-name=smart-senior"
+    "web:dev": "npm run dev --prefix web",
+    "web:preview": "npm run preview --prefix web",
+    "deploy:legacy": "wrangler pages deploy . --project-name=smart-senior"
   }
 }

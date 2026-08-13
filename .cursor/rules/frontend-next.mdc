@@ -1,0 +1,26 @@
+---
+description: >-
+  Frontend kanoniczny: Next.js App Router w /web na Cloudflare OpenNext (ADR-008).
+  Zakaz Vercel i @cloudflare/next-on-pages. Legacy Vanilla — frontend-js.mdc.
+globs: web/**/*.{ts,tsx,js,jsx,css}
+alwaysApply: false
+---
+
+# Frontend — Next.js (`/web`)
+
+**Host:** Cloudflare (`@opennextjs/cloudflare`, Worker `smart-senior-web`). **Nie Vercel.**
+
+## Obowiązkowe
+
+- TypeScript + Tailwind; mobile-first (`/rodzina`), szerszy layout (`/placowka`).
+- Zero logiki medycznej / Guardrails w przeglądarce — tylko UI + JWT.
+- Sekrety: wyłącznie `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+## Zakazane
+
+- `vercel` / `@vercel/*` / deploy na Vercel.
+- `@cloudflare/next-on-pages` (stary adapter Pages Functions).
+- Nowe ekrany w `index.html` / `src/js/`.
+- `service_role` / klucze LLM w `web/`.
+
+Copy: `product-ui-craft.mdc`. Deploy: skill `cloudflare-seniorsmart`.

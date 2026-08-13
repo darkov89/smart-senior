@@ -3,6 +3,7 @@
 !.env.example
 .wrangler/
 node_modules/
+.open-next/
 .DS_Store
 supabase/.temp/
 *.log
