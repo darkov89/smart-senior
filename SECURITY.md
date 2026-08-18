@@ -30,7 +30,7 @@ Architecture / NFR: [`docs/HLD.md`](docs/HLD.md). Living implementation: [`docs/
 2. **RLS on every table.** New tables must ship with `ENABLE ROW LEVEL SECURITY` and explicit policies for `app_role`.
 3. **Never expose `service_role` / secret keys** in static HTML/JS, Cloudflare Pages public assets, or git.
 4. **Multi-tenant isolation.** Queries and policies must scope by `organization_id` (except intentional `superadmin` paths).
-5. **Family data minimization.** Families must not receive `raw_data` from `daily_logs`, nor any row from `voice_conversations` / `voice_conversation_turns` / `voice_draft_notes`. Use `family_daily_reports` (or equivalent Edge-shaped payloads) exposing only `processed_data` after evening merge and human approval.
+5. **Family data minimization.** Families must not receive `raw_data` from `daily_logs`, nor any row from `voice_conversations` / `voice_conversation_turns` / `voice_draft_notes`. Use `family_daily_reports` exposing only `daily_reports.content` when `status=published` after human approval.
 6. **IoT least privilege.** Device identities (`iot_device`) may only `INSERT` sensor logs — no SELECT/UPDATE/DELETE on clinical tables.
 7. **Audit.** Prefer triggers / `audit_logs` for UPDATE/DELETE on tenant data (ISO 27001 trail).
 8. **Auth on Edge.** Every Edge Function must verify the Supabase JWT (or a dedicated, rotated device token for IoT) before side effects.

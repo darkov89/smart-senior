@@ -16,7 +16,7 @@ Projekt przetwarza dane wrażliwe (zdrowotne) i podlega surowym regulacjom. Poni
 
 ## 2. Inżynieria EU AI Act (Mikro-wymogi Always-On)
 - **Znakowanie AI:** Wynik LLM prezentowany użytkownikowi MUSI być oznaczony (np. `is_ai_generated: true`).
-- **Sanityzacja Promptów:** W promptach do LLM **zakaz** surowych identyfikatorów pacjenta (PESEL, pełne imię i nazwisko powiązane ze stanem zdrowia).
+- **Sanityzacja Promptów:** W promptach do LLM **zakaz** surowych identyfikatorów pensjonariusza (PESEL, pełne imię i nazwisko powiązane ze stanem zdrowia). W treści dla rodziny **zakaz** słów pacjent / chory (MDR — `ai-prompt-guardrails` §3.1).
 - **Human Oversight Trigger:** Decyzje AI wpływające na opiekę wymagają zatwierdzenia (`approved_by_user_id`).
 
 ## 3. Kryptografia danych (ADR-005) — twarde

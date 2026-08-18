@@ -13,7 +13,7 @@ Ten skill jest kluczowy przy projektowaniu integracji z LLM w ekosystemie Senior
 Pełny kontekst AI Act: `@compliance-medtech.mdc` → reference `eu-ai-act.md`. HLD §B Guardrails. ADR-010.
 
 ## 0. Fail Secure (HITL)
-Jeśli niepewność: czy treść AI idzie do rodziny bez review, czy prompt zawiera PII pacjenta, czy zmienia się risk class AI Act — **STOP**:
+Jeśli niepewność: czy treść AI idzie do rodziny bez review, czy prompt zawiera PII pensjonariusza, czy zmienia się risk class AI Act — **STOP**:
 `🛑 COMPLIANCE / ARCH CHECK REQUIRED - Czekam na decyzję człowieka`
 
 ## 1. Ochrona przed Prompt Injection
@@ -21,26 +21,45 @@ Jeśli niepewność: czy treść AI idzie do rodziny bez review, czy prompt zawi
 - Nie ufaj danym z wejścia (user input).
 - System Prompt / Guardrails **tylko w Edge Function** — zero Guardrails medycznych w Alpine/browser.
 - Zakaz w promptach do LLM: PESEL, pełne imię+nazwisko powiązane ze stanem zdrowia (patrz `secure-by-design.mdc`).
+- Zakaz w treści dla rodziny i w System Prompt: nazywanie osoby **pacjentem** / **chorym** (MDR — §3.1).
+- **Zero-Guessing:** do LLM nie przekazuj `patient_id`, imienia ani nazwiska. Tożsamość wiąże Edge z payloadu, nie model.
+
+## 2. Formatowanie Odpowiedzi i Niezawodność
 
 ## 2. Formatowanie Odpowiedzi i Niezawodność
 - Wymuszaj odpowiedź w formacie JSON (używaj Structured Outputs / JSON Schema).
 - Wdrażaj mechanizmy "Fallback": jeśli model ma niską pewność, musi zwrócić flagę `confidence: low` lub z góry ustaloną odpowiedź awaryjną (np. "Wymagana konsultacja z personelem").
-- Unikaj halucynacji: dodaj do promptów instrukcję "Jeśli nie masz danych w dostarczonym kontekście, odpowiedz 'Brak danych'. Nie wymyślaj informacji medycznych."
+- Unikaj halucynacji: dodaj do promptów instrukcję "Jeśli nie masz danych w dostarczonym kontekście, odpowiedz 'Brak danych'. Nie wymyślaj interpretacji klinicznych."
 - Zapisuj `model` + wersję przy generacji; oznaczaj wynik (`is_ai_generated` / `log_type: ai_report`).
 - Peace Letter / treść dla rodziny: **human-in-the-loop** — zatwierdzenie (`approved_by_user_id`) przed wysyłką.
 - **Zakaz** emitowania końcowego Peace Letter z pojedynczej tury — patrz §6 (ADR-010).
 
 ## 3. Ton Komunikacji (UX dla AI)
 - Komunikaty do personelu: Zwięzłe, analityczne, oznaczające priorytet i akcje do wykonania. Pytania uzupełniające: jedno, krótkie, po polsku, bez żargonu stackowego.
-- Komunikaty generowane dla Seniora / rodziny: Prosty język, maksymalnie empatyczny, wolny od żargonu technicznego/medycznego. Wysoki kontrast i bezpośredniość.
+- Komunikaty generowane dla Seniora / rodziny: Prosty język, maksymalnie empatyczny, wolny od żargonu technicznego i klinicznego. Wysoki kontrast i bezpośredniość.
 - UI: zero żargonu stackowego (patrz `product-ui-craft.mdc`); użytkownik widzi spokojne ostrzeżenie „treść przygotowana ze wsparciem AI”, nie nazwy modeli.
+
+## 3.1 Słownik produktowy (MDR Guardrails)
+
+System **nie jest wyrobem medycznym**. Warstwa polska (UI, SMS, Peace Letter, System Prompt) nigdy nie może brzmieć jak karta choroby.
+
+| Zakaz (PL, warstwa prezentacji i LLM) | Zamiast tego |
+|---------------------------------------|--------------|
+| pacjent, chory | Senior, Mieszkaniec, Pensjonariusz, Podopieczny, Bliski |
+| diagnoza, leczenie, parametry życiowe | samopoczucie, wskaźniki komfortu, aktywność, regeneracja |
+| triaż, zalecenie lekarskie, alarm kliniczny | relacja z dnia; decyzje zostawiamy personelowi |
+
+**Kod angielski bez zmian:** tabele (`patients`, `patient_id`) i identyfikatory TypeScript zostają. Zakaz dotyczy wyłącznie polskiego UX i promptów.
+
+Peace Letter **nigdy** nie nazywa seniora pacjentem ani chorym.
 
 ## 4. Degraded mode (HLD §E)
 OpenAI down → kolejka notatek (`voice_draft_notes`), brak utraty danych, retry; **nie** obniżaj Guardrails „żeby szybciej”.
 
 ## 5. Checklist przed ship AI
 - [ ] Edge-only; JWT zweryfikowany
-- [ ] Brak PII pacjenta w prompcie
+- [ ] Brak PII pensjonariusza w prompcie
+- [ ] Peace Letter / SMS / UI: zero słów pacjent / chory
 - [ ] JSON schema + fallback `confidence`
 - [ ] Oznaczenie AI + audit / model id
 - [ ] Human oversight na ścieżce rodzinnej
@@ -49,12 +68,24 @@ OpenAI down → kolejka notatek (`voice_draft_notes`), brak utraty danych, retry
 - [ ] Krótka / niekompletna notatka → `follow_up`, nie Peace Letter
 - [ ] Żargon kliniczny i detale godności odfiltrowane z kanału rodziny
 - [ ] Merge wieczorny, nie jednorazowy dump transkryptu
+- [ ] POST ma `patient_id`; LLM nie dostaje tożsamości; INSERT z tym samym `patient_id`
 
 ---
 
 ## 6. Conversational Voice (ADR-010) — obowiązkowy kontrakt
 
 **Nie** jednorazowe dyktowanie. LLM jest aktywnym asystentem personelu.
+
+### 6.0 Zero-Guessing Entity Resolution
+
+Tożsamość pensjonariusza **nie** pochodzi z transkryptu („notatka dla Jana”).
+
+1. Personel zaczyna nagranie wyłącznie z cyfrowej karty konkretnego seniora.
+2. Next.js zawsze wysyła `patient_id` w POST do Edge `voice-assistant`. Brak `patient_id` → 400, bez wywołania OpenAI.
+3. Edge trzyma `patient_id` w RAM żądania. Do Whisper/GPT idzie wyłącznie transkrypt (np. „Zjadł obiad i czuje się dobrze”) — bez UUID, bez imienia.
+4. Po JSON od modelu Edge `INSERT` do `voice_draft_notes` / `voice_*` z **tym samym** `patient_id`.
+
+Zakaz: NER, fuzzy match po imieniu, „wybierz pensjonariusza z tekstu”. Ryzyko: pomyłka rekordu (RODO) i halucynacja STT/LLM.
 
 ### 6.1 Interactive prompting
 Jeśli transkrypcja jest zbyt krótka **lub** brakuje kluczowego kontekstu (samopoczucie / posiłek w porze obiadowej / sen / aktywność — zależnie od pory dnia):
@@ -74,13 +105,13 @@ Automatycznie wykrywaj żargon medyczny (diagnozy, leki, procedury — np. „ar
 - `clinical_handling`: `staff_internal` (domyślnie) albo `redact` (ustawienie prywatności org).
 - Treści klinicznej **nie haszować** (ADR-005).
 
-### 6.3 Godność pacjenta
+### 6.3 Godność pensjonariusza
 Detale drastyczne, wulgarne lub naruszające godność (inkontynencja, nagość, upokorzenie) **generalizuj**: „dyskomfort”, „gorsze samopoczucie”. Nigdy dosłowny opis w kanale rodziny.
 
 Podstawa: obowiązek poszanowania godności osoby korzystającej z pomocy — **Ustawa o pomocy społecznej**. To musi być w System Prompt (poniżej), nie tylko w komentarzu kodu.
 
 ### 6.4 Merging notatek
-Wiele krótkich głosówek tego samego pacjenta w `local_date` (Europe/Warsaw) → wieczorny Edge CRON `merge-daily-peace-letters` scala drafty `ready_to_merge` w **jeden** Peace Letter (`daily_logs`, `is_ai_generated`, potem `approved_by_user_id`).
+Wiele krótkich głosówek tego samego pensjonariusza w `local_date` (Europe/Warsaw) → wieczorny Edge CRON `merge-daily-peace-letters` scala drafty `ready_to_merge` w **jeden** Peace Letter (`daily_reports`, HITL `approved_by` / `published`).
 
 ### 6.5 JSON Schema (Structured Outputs)
 
@@ -111,6 +142,13 @@ Poniższy tekst jest kontraktem dla Whisper→GPT. Zmiana wymaga `deno test supa
 ```text
 Jesteś asystentem dokumentacji opieki w domu seniora (Pakiet Spokoju).
 Nie jesteś lekarzem. Nie stawiasz diagnoz, nie triażujesz, nie zalecasz leków.
+To nie jest system medyczny ani wyrób medyczny (MDR).
+
+SŁOWNIK (obowiązkowy w każdej treści dla rodziny i w Peace Letter):
+Nigdy nie nazywaj osoby „pacjentem” ani „chorym”.
+Używaj: senior, mieszkaniec, pensjonariusz, podopieczny, bliski.
+Zamiast diagnozy, parametrów życiowych i leczenia pisz o samopoczuciu,
+wskaźnikach komfortu, aktywności i regeneracji.
 
 GODNOŚĆ (Ustawa o pomocy społecznej):
 Każda osoba korzystająca z pomocy ma prawo do poszanowania godności.
@@ -131,7 +169,8 @@ is_peace_letter zawsze false w tej turze.
 
 PEACE LETTER:
 Powstaje dopiero z scalenia notatek dnia (merge wieczorny) i po zatwierdzeniu
-przez personel. Empatia, prosty język, bez klinik i bez PII (PESEL, pełne nazwisko).
+przez personel. Empatia, prosty język, bez klinik, bez słowa „pacjent”/„chory”
+i bez PII (PESEL, pełne nazwisko). To relacja opiekuńcza, nie karta choroby.
 
 INNE:
 Nie wymyślaj faktów. Brak danych → missing_contexts, nie halucynacja.

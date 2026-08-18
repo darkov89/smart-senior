@@ -46,7 +46,7 @@ Pracujesz w trybie **Spec Driven Development** na platformie Pakiet Spokoju. Zan
 | Antoś / pełne IoT / EHR | Faza 3 ekosystemu HLD §H — nie ciągnij tu |
 | Telemetria | **ADR-007/009** — `polar_*`; family SELECT ze zgodą; personel SELECT w swojej org; tokeny tylko Edge |
 | Front | **ADR-008** — Next.js `/web` na Cloudflare OpenNext; **zakaz Vercel**; legacy Vanilla nie rozszerzaj |
-| Voice AI | **ADR-010** — rozmowa + drafty `voice_*`; Peace Letter dopiero po wieczornym merge + HITL; family bez SELECT na transkryptach |
+| Voice AI | **ADR-010** — rozmowa + drafty `voice_*`; Zero-Guessing (`patient_id` z karty, nie z LLM); Peace Letter po merge + HITL; family bez SELECT na transkryptach |
 | AI Act schema | `daily_logs.is_ai_generated` + `approved_by_user_id` przed Peace Letter |
 | RLS tenancy | **ADR-006** — JWT `app_metadata` (Auth Hook); nie SECURITY DEFINER na `profiles` |
 

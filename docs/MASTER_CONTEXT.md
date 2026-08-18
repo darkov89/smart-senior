@@ -4,7 +4,7 @@
 > **Decyzje HLD / NFR / roadmapa:** [`HLD.md`](HLD.md) — nie duplikuj tu ekonomiki ani pełnego HLD.  
 > Security policy: [`SECURITY.md`](../SECURITY.md). Strażnik: reguła `architectural-guardian`.
 
-**Ostatnia aktualizacja treści:** 2026-08-13 — retencja głosówek 30 dni + enum `voice_missing_context` + archiwum `patients`
+**Ostatnia aktualizacja treści:** 2026-08-18 — Worker `smart-senior-web` usunięty z konta DFCMS; Pages `smart-senior` osobno
 
 ---
 
@@ -15,7 +15,18 @@ Platforma **B2B SaaS dla domów opieki**:
 - optymalizacja raportowania personelu (notatki głosowe zamiast pisania),
 - proaktywna komunikacja z rodzinami pensjonariuszy („święty spokój” = mniej telefonów).
 
-**KPI:** zaoszczędzony czas pielęgniarek; spadek zapytań telefonicznych od rodzin.
+**KPI:** zaoszczędzony czas personelu; spadek zapytań telefonicznych od rodzin.
+
+### Słownik Produktowy (MDR Guardrails)
+
+System **nie jest wyrobem medycznym**. Polski UX, SMS i prompty LLM nigdy nie mogą brzmieć jak karta choroby. Tabele i zmienne angielskie (`patients`, `patient_id`) **zostają**.
+
+| Zakaz w UI / SMS / Peace Letter / System Prompt | Dozwolone |
+|-------------------------------------------------|-----------|
+| pacjent, chory | Senior, Mieszkaniec, Pensjonariusz, Podopieczny, Bliski |
+| diagnoza, leczenie, parametry życiowe | samopoczucie, wskaźniki komfortu, aktywność, regeneracja |
+
+SoT promptów: [`.cursor/rules/ai-prompt-guardrails.mdc`](../.cursor/rules/ai-prompt-guardrails.mdc) §3.1. Copy UI: `product-ui-craft.mdc`.
 
 ---
 
@@ -67,8 +78,8 @@ Konfiguracja Next: `web/.env.local` (`NEXT_PUBLIC_SUPABASE_*` only). Legacy: `sr
 | Obszar | Stan obecny (MVP) |
 |--------|-------------------|
 | **Git** | `https://github.com/darkov89/smart-senior` — gałąź `main` |
-| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** → `https://smart-senior.pages.dev` |
-| **Cloudflare Next.js** | Worker **`smart-senior-web`** (`@opennextjs/cloudflare`) — deploy po cutoverze |
+| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** → `https://smart-senior.pages.dev` (osobny od **`dfcms`**). Git z korzenia repo **nie** jest deployem Next — wgrywa `node_modules`/`workerd`. |
+| **Cloudflare Next.js** | Worker **`smart-senior-web` usunięty** z konta DFCMS (nie mieszamy z `dfcms.pl`). Deploy OpenNext: `cd web && npm run deploy` na koncie Pakietu Spokoju, **bez** `account_id` DFCMS w `web/wrangler.jsonc`. Cutover DNS jeszcze nie. |
 | **Supabase `project-ref`** | **`bmughdoqdsjfstxnnjks`** (nazwa: SeniorSmart, region: North EU / Stockholm) |
 | **Org Supabase** | osobna od dfops (`fhjokrekpzahqcskjmul`) |
 | **Lokalny front** | `npm run web:dev` (`web/`); legacy: `npm run deploy:legacy` |
@@ -107,18 +118,25 @@ Słowny opis „co jak działa i po co”: [`.agents/skills/supabase-seniorsmart
 | Tabela | Rola |
 |--------|------|
 | `organizations` | Domy opieki (`name`, `settings_json`) |
-| `profiles` | Rozszerzenie `auth.users` — `organization_id`, `role`, `full_name` |
+| `profiles` | Rozszerzenie `auth.users` — `organization_id`, `role`, `full_name`, `phone` (SMS) |
 | `patients` | Pensjonariusze — minimalizacja (`first_name`, `last_name_initial`, `pesel_hash`, `room`); opcjonalnie `archived_at` / `archived_reason` |
-| `daily_logs` | Notatki / sensory / raporty AI — `raw_data`, `processed_data`, **`is_ai_generated`**, **`approved_by_user_id`** (EU AI Act HITL) |
+| `daily_logs` | Notatki / sensory / raporty AI — `raw_data`, `processed_data` (tor personelu; **nie** kanał rodziny) |
+| `daily_reports` | Raport dzienny / Peace Letter; family SELECT tylko `status=published` |
+| `notification_preferences` | Opt-in SMS/e-mail rodziny per pensjonariusz |
+| `notification_deliveries` | Wysyłki; zapis `service_role`; personel SELECT |
 | `voice_conversations` | Stan rozmowy (jeden otwarty wątek / pacjent / `local_date`); `missing_contexts voice_missing_context[]` |
 | `voice_conversation_turns` | Tury: transkrypcja personelu lub pytanie asystenta |
 | `voice_draft_notes` | Surowe głosówki przed wieczornym merge — `transcript`, `staff_internal_notes`, `family_safe_partial`; cleanup 30 dni po merge/discard |
 | `telemetry_logs` | Legacy agregaty BLE; family bez SELECT |
 | `consent_ledger` | Zgody RODO; purpose `wearable_family_access` (ADR-009) |
-| `polar_connections` | Link Polar user — bez tokenów OAuth |
+| `polar_connections` | Link Polar user — bez tokenów OAuth; `connection_status`, `last_sync_at` |
 | `polar_daily_activity` / `polar_sleep_nights` / `polar_heart_rate_daily` / `polar_hrv_nights` | Agregaty dobowe Polar 360 (non-MD) |
+| `polar_sync_runs` | Przebiegi sync Polar; zapis tylko backend; family bez SELECT |
+| `polar_oauth_secrets` | Tokeny AccessLink — GRANT tylko `postgres` / `service_role` |
 | `family_connections` | Powiązanie profilu rodziny ↔ pacjent |
-| `audit_logs` | Audyt ISO — kto, kiedy, IP, UPDATE/DELETE |
+| `patient_staff_assignments` | Przypisanie personelu ↔ pensjonariusz; **nie zawęża jeszcze RLS nurse** |
+| `audit_logs` | Audyt ISO — kto, kiedy, IP, UPDATE/DELETE; append-only |
+| `security_access_logs` | Dziennik dostępu; append-only; INSERT przez `log_security_access()` |
 
 Migracja bazowa: `supabase/migrations/20260717193117_init_multi_tenant_schema.sql`.  
 Telemetria: `20260811185009_add_telemetry_logs.sql`.  
@@ -126,18 +144,21 @@ AI Act columns: `20260812080000_add_ai_compliance.sql`.
 Bramki IoT (historyczna): `20260812081000_iot_gateways.sql` — **DROP** `20260813132832_drop_iot_gateways.sql` (ADR-007).  
 Polar + zgody: `20260813134500_polar_wearable_consent.sql` (ADR-009).  
 Głos (ADR-010): `20260813135918_voice_conversation_drafts.sql`.  
-Enum + retencja: `20260813145248_voice_enum_and_retention.sql` — `cleanup_old_voice_drafts()` tylko `service_role`.
+Enum + retencja: `20260813145248_voice_enum_and_retention.sql` — `cleanup_old_voice_drafts()` tylko `service_role`.  
+Enterprise hardening: `20260814103804_enterprise_hardening.sql` + `20260814104307_enterprise_hardening_followup.sql` — raport: [`ENTERPRISE_HARDENING_REPORT.md`](ENTERPRISE_HARDENING_REPORT.md).  
+Product workflow: `20260814112552_product_workflow_and_notifications.sql` — `db push` OK.
 
 ### Widok rodzinny
 
-`family_daily_reports` — `processed_data`, bez `raw_data`, po `family_connections`.  
-`family_wearable_comfort` — kroki / sen / sleep_score; **bez** BPM i HRV (`security_invoker`).  
+`family_daily_reports` — `daily_reports.content` przy `status=published` (security_invoker); bez `daily_logs`.  
+`family_wearable_comfort` — kroki / sen / sleep_score + `last_successful_sync_at`; **bez** BPM i HRV (`security_invoker`).  
 **Family nie ma SELECT na `telemetry_logs`.** Metryki Polar: tylko z przypisaniem **i** aktywną zgodą `wearable_family_access`.
 
 ### Retencja (live)
 
 - `patients.archived_at` / `archived_reason` — miękka archiwizacja (`deceased` \| `left_facility` \| `gdpr_request`). Rodzina: brak SELECT (helper `family_can_access_patient` + widoki). Personel: SELECT historii OK; INSERT/UPDATE opieki tylko gdy `patient_is_active`. Twarde usunięcie = `DELETE patients` (CASCADE; `audit_logs.old_data` na DELETE opieki = `[REDACTED DUE TO GDPR]`).
 - `cleanup_old_voice_drafts()` — surowe `voice_*` merged/discarded (rozmowy: merged/abandoned) starsze niż 30 dni. `pg_cron` job `cleanup-old-voice-drafts` o 03:00 Europe/Warsaw; `GRANT EXECUTE` dla `postgres` + `service_role`. Peace Letter (`daily_logs`) bez zmian.
+- Pozostałe okresy retencji (Polar, `daily_logs`, consent, audit, access logs, otwarte transkrypty) — **REQUIRES_POLICY_DECISION**.
 
 ---
 
@@ -149,7 +170,7 @@ Enum + retencja: `20260813145248_voice_enum_and_retention.sql` — `cleanup_old_
 |------|--------|
 | `superadmin` | Pełny dostęp systemowy |
 | `org_admin` / `nurse` | R/W wyłącznie w swoim `organization_id` |
-| `family` | `family_daily_reports`; Polar tylko z zgodą (`family_wearable_comfort` / tabele `polar_*`); nigdy `raw_data`, nigdy tabele `voice_*` |
+| `family` | `family_daily_reports` (published); Polar tylko z zgodą (`family_wearable_comfort`); preferencje powiadomień własne; nigdy `raw_data`, nigdy tabele `voice_*`, nigdy `notification_deliveries` |
 | `iot_device` | Tylko **INSERT** do `daily_logs` (`typ_logu = hardware_sensor`) w swojej org |
 
 **`telemetry_logs`:** SELECT dla `org_admin` / `nurse` + `superadmin`; family — brak SELECT.
@@ -164,7 +185,23 @@ Enum + retencja: `20260813145248_voice_enum_and_retention.sql` — `cleanup_old_
 
 **`consent_ledger`:** superadmin ALL; `org_admin` R/W swojej org; family SELECT własnych wierszy (bez INSERT).
 
-**`voice_conversations` / `voice_conversation_turns` / `voice_draft_notes` (ADR-010):** superadmin ALL; `org_admin` / `nurse` R/W w swojej org; **family — brak SELECT**. Transkryptów nie haszować (ADR-005). Peace Letter nadal tylko `daily_logs` po merge + `approved_by_user_id`.
+**`voice_conversations` / `voice_conversation_turns` / `voice_draft_notes` (ADR-010):** superadmin ALL; `org_admin` / `nurse` R/W w swojej org; **family — brak SELECT**. Transkryptów nie haszować (ADR-005). Peace Letter = `daily_reports` po merge + HITL + `published`.
+
+**Zero-Guessing Entity Resolution (HLD 2.4.5):** nagrywanie wyłącznie z karty konkretnego seniora. POST do Edge `voice-assistant` **musi** zawierać `patient_id`. LLM dostaje sam transkrypt (bez imienia / UUID). Zapis `voice_*` wiąże wiersz z `patient_id` z żądania — nigdy z zgadywania „dla Jana”.
+
+**Integralność tenanta (2026-08-14):** UNIQUE `(id, organization_id)` na `patients` / `profiles` / `polar_connections` / `voice_conversations`; composite FK `(patient_id, organization_id)` na tabelach opieki, Polar, głos, telemetry, consent, family, assignments. Istniejące pojedyncze FK zachowane.
+
+**`patient_staff_assignments`:** org_admin R/W (aktywny pensjonariusz, org z JWT); nurse SELECT swojej org. **Nie podłączać jeszcze do RLS `patients`/`daily_logs`** — obecny model personelu jest org-wide.
+
+**`polar_sync_runs` / `security_access_logs`:** authenticated bez INSERT/UPDATE/DELETE. org_admin SELECT swojej org; superadmin SELECT; family DENY. `log_security_access()` ustawia `actor_id` z `auth.uid()`.
+
+**Polar HR/HRV:** family **brak** SELECT na `polar_heart_rate_daily` / `polar_hrv_nights`. Kanał rodzinny = `family_wearable_comfort` (kroki/sen) + zgoda.
+
+**`polar_oauth_secrets`:** brak GRANT dla `anon`/`authenticated`.
+
+**`daily_reports`:** superadmin ALL; `org_admin` / `nurse` R/W w swojej org (zapis tylko gdy `patient_is_active`); family SELECT wyłącznie `status=published` + `family_can_access_patient`. Widok `family_daily_reports` = ten sam filtr (`security_invoker`).
+
+**Powiadomienia:** `notification_preferences` — family CRUD własne (`profile_id = auth.uid()`); personel SELECT org. `notification_deliveries` — authenticated tylko SELECT (staff/superadmin); INSERT/UPDATE przez `service_role`. UNIQUE `(profile_id, daily_report_id, channel)`.
 
 **Autoryzacja RLS (ADR-006):** w 100% z **Custom JWT Claims** (`app_metadata.role`, `app_metadata.organization_id`) wstrzykiwanych przez Auth Hook `custom_access_token_hook`. Polityki porównują `(auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid` z kolumną tenanta — bez lookupu `profiles` na wiersz.
 
@@ -182,6 +219,7 @@ Helpery SECURITY DEFINER **pozostawione:** `family_can_access_patient(uuid)`, `f
 4. Frontend → Next.js w `/web`; zero logiki medycznej / Guardrails w przeglądarce. Legacy Alpine nie rozszerzaj.
 5. **Service role / secret keys** nigdy w statycznym froncie ani w Pages (public).
 6. **Czystość i skalowalność (obowiązkowe):** kod w najczystszej, skalowalnej formie — jedna odpowiedzialność, jawne nazwy, małe moduły, brak pomijanych błędów, konfiguracja poza logiką. Szczegóły: reguła Cursor `.cursor/rules/clean-scalable-code.mdc` + skill `.agents/skills/clean-scalable-code`.
+7. **Zero-Guessing:** Edge głosowy odrzuca request bez `patient_id`. Zakaz inferencji tożsamości pensjonariusza z tekstu STT/LLM.
 
 ---
 
@@ -192,10 +230,10 @@ Helpery SECURITY DEFINER **pozostawione:** `family_can_access_patient(uuid)`, `f
 | Whisper | Transkrypcja głosowa | Edge Function (jeszcze nie prod) |
 | GPT-4o | Asystent konwersacyjny + Guardrails (klinika/godność) + wieczorny merge | Edge Function (jeszcze nie prod) |
 
-**Przepływ (ADR-010):** Whisper → tura JSON (`follow_up` \| `ready_for_draft` \| `blocked`) → `voice_draft_notes` → CRON `merge-daily-peace-letters` → `daily_logs` → HITL `approved_by_user_id`.  
-Rodziny i front publiczny widzą wyłącznie `processed_data` po pipeline AI. Drafty / transkrypty — tylko personel.
+**Przepływ (ADR-010 / Zero-Guessing):** karta seniora → POST `patient_id` + audio → Edge `voice-assistant` (RAM) → Whisper/GPT dostaje **tylko** transkrypt → JSON → `INSERT voice_*` z tym samym `patient_id` → CRON `merge-daily-peace-letters` → `daily_reports` → HITL `published`.  
+Rodziny widzą wyłącznie opublikowany Peace Letter. Drafty / transkrypty — tylko personel.
 
-**EU AI Act (schema):** `daily_logs.is_ai_generated` (oznaczenie Art. 50) + `daily_logs.approved_by_user_id` (human oversight przed Peace Letter).  
+**EU AI Act (schema):** `daily_reports.ai_model` + `approved_by` / `approved_at` przed `published`. Kolumny HITL na `daily_logs` zostają dla surowego toru personelu.  
 **TDD Guardrails:** `supabase/functions/tests/guardrails.test.ts` — zaślepka heurystyczna (follow-up, żargon, godność, injection); produkcyjny LLM Edge nadal do podłączenia.  
 **System Prompt:** `.cursor/rules/ai-prompt-guardrails.mdc` §7.
 
@@ -213,8 +251,8 @@ Rodziny i front publiczny widzą wyłącznie `processed_data` po pipeline AI. Dr
 | Tokeny | `polar_oauth_secrets` — brak GRANT dla authenticated |
 | Wycofane | tabela `iot_gateways`, Edge `ingest-telemetry`, Bearer bramki |
 | Magazyn | `polar_*` (kanon) + `telemetry_logs` (legacy) |
-| Client SELECT Polar | tylko family + zgoda + assignment (ADR-009) |
-| Personel / PostgREST | brak SELECT metryk Polar |
+| Client SELECT Polar | family + zgoda + assignment; personel (`org_admin` / `nurse`) SELECT w swojej org (Big Picture); family **bez** HR/HRV tabel |
+| Personel / PostgREST | SELECT metryk Polar w swojej org; family DTO = `family_wearable_comfort` |
 | Cel | Wzbogacenie notatek głosowych — nie zastąpienie |
 | Non-MD / MDR | Komfort i samopoczucie; Peace Letter bez surowych BPM |
 
@@ -224,11 +262,11 @@ Rodziny i front publiczny widzą wyłącznie `processed_data` po pipeline AI. Dr
 
 | Co | Jak |
 |----|-----|
-| **Front Next.js** | `cd web && npm run deploy` → Worker `smart-senior-web` (OpenNext). **Nie Vercel.** Cutover jeszcze nie zrobiony. |
+| **Front Next.js** | `cd web && npm run deploy` (OpenNext Worker `smart-senior-web`) — **nie** na koncie DFCMS, **nie** Git build z korzenia repo. Publiczne `NEXT_PUBLIC_SUPABASE_*` w Variables + `web/.env.production` przed buildem. **Nie Vercel.** |
 | **Front legacy** | `npm run deploy:legacy` → Pages `smart-senior` (**nie** `dfcms`) |
 | **DB** | `npx supabase db push` (po sprawdzeniu `project-ref`) |
 | **Edge Functions** | `npx supabase functions deploy <name>` — m.in. `onboard-organization`, `polar-oauth`, `polar-webhook` |
-| **Git** | `git push origin main` — **nie** deployuje automatycznie Supabase ani Cloudflare |
+| **Git** | `git push origin main` **nie** deployuje Supabase. Podpięty Cloudflare Git z root `repo/` wgrywa `workerd` (144 MiB) — Root directory musi być `web/`. |
 
 ---
 
@@ -281,3 +319,10 @@ Pielęgniarka / Rodzina / Polar AccessLink (Faza 4)
 | 2026-08-13 | Faza 3 zamknięta: staff SELECT Polar (opcja A) `20260813135255_polar_staff_access`. Faza 4 szkielet: `polar-oauth`, `polar-webhook`, `polar_oauth_secrets`. |
 | 2026-08-13 | Faza 5: ADR-010 Conversational Voice; `db push` `20260813135918_voice_conversation_drafts`; HLD 2.4.0; Guardrails stub 6/6. Whisper/GPT Edge i CRON `merge-daily-peace-letters` — jeszcze nie prod. |
 | 2026-08-13 | Retencja RODO: enum `voice_missing_context`; `patients.archived_*` + RLS `patient_is_active`; audit DELETE zredagowany; `cleanup_old_voice_drafts()` + pg_cron 03:00 Warsaw; HLD 2.4.1. `db push` `20260813145248` OK. |
+| 2026-08-14 | Enterprise hardening: composite FKs tenant; `patient_staff_assignments`; `polar_sync_runs`; `security_access_logs`; OAuth GRANT lockdown; family DENY HR/HRV tables; AI provenance CHECKs. `db push` `20260814103804` + `20260814104307` OK. Raport: `docs/ENTERPRISE_HARDENING_REPORT.md`. |
+| 2026-08-14 | Product workflow: `db push` `20260814112552_product_workflow_and_notifications.sql` OK. `daily_reports` + powiadomienia + `profiles.phone`; HLD 2.4.3. Bez czatu/devices. |
+| 2026-08-18 | Słownik produktowy MDR: zakaz „pacjent”/„chory” w UX, SMS i System Prompt; `patients` w kodzie bez zmian. HLD 2.4.4. |
+| 2026-08-18 | Zero-Guessing Entity Resolution: `patient_id` z karty seniora w POST; LLM bez tożsamości. HLD 2.4.5. |
+| 2026-08-18 | Deploy OpenNext Worker `smart-senior-web` (v `c59184d5-a3f2-4870-ab05-c7c9ff98dafd`) → `https://smart-senior-web.dfcms.workers.dev`. Wrangler OAuth. `NEXT_PUBLIC_SUPABASE_*` do dopisania w CF + rebuild. Cutover DNS nie. |
+| 2026-08-18 | Pages project `smart-senior` utworzony (obok `dfcms`, nie wewnątrz). Worker `smart-senior-web` redeploy v `44175741-83c9-4d39-94f7-c3bd5878bac3`. Nadal jedno konto CF (`dfcms` workers.dev). |
+| 2026-08-18 | Usunięto Worker `smart-senior-web` z konta DFCMS. Zdjęty `account_id` z `web/wrangler.jsonc`. Cloudflare Git z korzenia repo = błąd `workerd` 144 MiB; `.assetsignore` + Root directory `web/`. |

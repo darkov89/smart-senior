@@ -2,8 +2,14 @@
 .env.*
 !.env.example
 .wrangler/
+**/.wrangler/
 node_modules/
+**/node_modules/
+.next/
+**/.next/
 .open-next/
+**/.open-next/
+**/workerd
 .DS_Store
 supabase/.temp/
 *.log

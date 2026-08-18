@@ -12,7 +12,7 @@ Frontend to **produkt dla ludzi** (pielęgniarki, rodziny, admin domu opieki) �
 ## Poprzeczka UI / UX
 
 1. **Wykończone, nie „MVP wireframe”** — typografia, rytm, hierarchia, stany puste/loading/błąd/sukces.
-2. **Zero żargonu w UI** — zakazane: sesja, token, RLS, JWT, Edge, store, org_id, role enum (`nurse`), „Secure by Design”, stack, deploy, API.
+2. **Zero żargonu w UI** — zakazane: sesja, token, RLS, JWT, Edge, store, org_id, role enum (`nurse`), „Secure by Design”, stack, deploy, API, **pacjent**, **chory**, diagnoza, leczenie, parametry życiowe (w copy dla rodziny).
 3. **Zero słabych placeholderów** — nie: Lorem, TODO, „Panel MVP”, generyczne „Dashboard”.
 4. **Stany jak produkt** — loading/błąd/pustka po ludzku; nigdy surowy exception.
 5. **Zaufanie i spokój** — kontrast, duże cele, mobile-first; bez chaosu „AI chrome”.
@@ -38,6 +38,11 @@ UI po **polsku**, tryb dokonujący („Zaloguj się”, „Zapisz notatkę”).
 | organization_id | *(nie pokazuj)* |
 | Panel MVP | Pakiet Spokoju |
 | Invalid JWT | Nie udało się zalogować. Sprawdź e-mail i hasło. |
+| pacjent / chory | pensjonariusz / mieszkaniec / podopieczny / bliski / senior |
+| diagnoza, leczenie, parametry życiowe | samopoczucie, komfort, aktywność, regeneracja |
+| tętno / puls / HRV (rodzina) | sen, kroki, jak minęła noc |
+
+**MDR:** UI, SMS i Peace Letter nigdy nie mówią „pacjent”. Tabele `patients` / `patient_id` zostają w kodzie.
 
 ## Współpraca przy promptach
 

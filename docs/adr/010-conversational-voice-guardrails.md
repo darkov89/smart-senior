@@ -1,7 +1,7 @@
 ---
 status: ACTIVE
 created: 2026-08-13
-updated: 2026-08-13
+updated: 2026-08-18
 source: HLD 2.4.0 / Silver Care MVP v2 Faza 5 (brief Punkt 6)
 supersedes: null
 superseded_by: null
@@ -29,6 +29,7 @@ MVP Punkt 6 wymaga odejścia od jednorazowego dyktowania do **aktywnego asystent
 5. **Merge** — planowany Edge CRON `merge-daily-peace-letters` (wieczór, Europe/Warsaw): zbiera drafty `ready_to_merge` per `(patient_id, local_date)` → jeden Peace Letter + `is_ai_generated`.
 6. **Family** — brak SELECT na draftach / turach / rozmowach. Transkryptów **nie haszować** (ADR-005).
 7. Kontrakt JSON i System Prompt: `.cursor/rules/ai-prompt-guardrails.mdc`. Testy: `guardrails.test.ts`.
+8. **Zero-Guessing Entity Resolution** — `patient_id` wyłącznie z POST (karta seniora w UI). LLM nie mapuje tożsamości z transkryptu. Edge wiąże INSERT z `patient_id` z żądania.
 
 ## Konsekwencje
 

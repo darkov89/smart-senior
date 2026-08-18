@@ -2,8 +2,8 @@
 
 | Pole | Wartość |
 |------|---------|
-| **Wersja** | 2.4.1 |
-| **Data** | 2026-08-13 |
+| **Wersja** | 2.4.6 |
+| **Data** | 2026-08-18 |
 | **Autor** | Dariusz Olszewski-Rink (Dragonfly Ops) |
 | **Przeznaczenie** | Zespół (SDD), interesariusze, due diligence (VC/grants) |
 | **Strażnik** | Reguła Cursor `architectural-guardian` + skill `.agents/skills/architectural-guardian` |
@@ -54,11 +54,9 @@ Dokument określa wysokopoziomową architekturę (HLD) platformy B2B SaaS „Pak
 
 ```mermaid
 flowchart LR
-  Staff[PersonelMedyczny] -->|NagrywaGlos| Platform[PakietSpokoju]
-  Family[Rodziny] -->|OdczytRaportow| Platform
-  Mgmt[ZarzadDomu] -->|SLA_ROI| Platform
+  Staff[PersonelPlacowki] -->|NagrywaGlos_z_karty_seniora| Platform[PakietSpokoju]
   Polar[Polar_AccessLink] -->|CloudToCloud| Platform
-  Family[Rodziny] -->|OdczytRaportow| Platform
+  Family[Rodziny] -->|Portal_i_SMS_email| Platform
   Mgmt[ZarzadDomu] -->|SLA_ROI| Platform
   Platform -->|AudioTranskrypcja| Whisper[OpenAI_Whisper_EU]
   Platform -.->|SMS_async| SMS[SMSAPI]
@@ -67,7 +65,7 @@ flowchart LR
 
 ### B.2 Data flow — Conversational Voice + Guardrails (human-in-the-loop)
 
-Asystent **nie** kończy pracy po jednej głosówce. Krótka lub niekompletna transkrypcja → pytanie do personelu. Peace Letter powstaje z **wieczornego merge** draftów i zatwierdzenia (`approved_by_user_id`). ADR-010.
+Asystent **nie** kończy pracy po jednej głosówce. Krótka lub niekompletna transkrypcja → pytanie do personelu. Peace Letter powstaje z **wieczornego merge** draftów i zatwierdzenia (`daily_reports.approved_by` → `published`). ADR-010.
 
 ```mermaid
 sequenceDiagram
@@ -77,24 +75,28 @@ sequenceDiagram
   participant DB as Postgres_RLS
   participant Cron as Merge_CRON
 
-  App->>Edge: UploadAudio_TLS_JWT
+  App->>Edge: JWT_plus_patient_id_plus_audio
+  Note over App: Nagrywanie tylko z karty konkretnego seniora
+  Note over Edge: Zero-Guessing — patient_id z payloadu, nie z LLM
   Edge->>LLM: Whisper_transcribe
   LLM-->>Edge: raw_text
-  Edge->>LLM: Guardrails_conversation_JSON
+  Edge->>LLM: Guardrails_JSON_anonimowy_transkrypt
+  Note over LLM: LLM nie dostaje imienia ani patient_id
   LLM-->>Edge: mode_follow_up_or_draft
   alt mode_follow_up
     Edge->>DB: voice_turns_plus_draft_awaiting_staff
+    Note over Edge,DB: INSERT twardo z patient_id z żądania
     Edge-->>App: Pytanie_uzupelniajace
   else clinical_or_ok
-    Edge->>DB: voice_draft_notes_staff_internal_split
+    Edge->>DB: voice_draft_notes_bound_to_request_patient_id
     Note over Edge,DB: Żargon kliniczny nigdy do rodziny; godność = generalizacja
     Edge-->>App: Zanotowano_szkic
   end
   Cron->>DB: Drafts_ready_to_merge_per_patient_day
   Cron->>LLM: Merge_plus_Guardrails
   LLM-->>Cron: Peace_Letter_candidate
-  Cron->>DB: daily_logs_is_ai_generated
-  Note over Cron,App: Wysyłka rodziny dopiero po approved_by_user_id
+  Cron->>DB: daily_reports_ready_then_HITL
+  Note over Cron,App: Publikacja rodziny dopiero po approved_by + published
 ```
 
 **Interactive prompting:** brak nastroju / posiłku (pora obiadowa) / snu / aktywności albo transkrypt zbyt krótki → `mode=follow_up`, **zakaz** końcowego raportu.
@@ -106,7 +108,9 @@ sequenceDiagram
 
 **Merge:** wiele `voice_draft_notes` tego samego `(patient_id, local_date)` → Edge CRON `merge-daily-peace-letters` (Europe/Warsaw, wieczór).
 
-**Zasada krytyczna:** żadne parsowanie / filtrowanie / Guardrails treści medycznej w przeglądarce. Frontend = UI + kolejka offline + wywołania z JWT. Transkryptów **nie haszować** (ADR-005).
+**Zasada krytyczna:** żadne parsowanie / filtrowanie / Guardrails treści klinicznej w przeglądarce. Frontend = UI + kolejka offline + wywołania z JWT. Transkryptów **nie haszować** (ADR-005).
+
+**Zero-Guessing Entity Resolution (twardy wymóg):** LLM **nie** zgaduje, którego pensjonariusza dotyczy notatka. Personel nagrywa wyłącznie z cyfrowej karty konkretnego seniora. Next.js **zawsze** wysyła `patient_id` w POST do Edge `voice-assistant`. Edge trzyma `patient_id` w RAM żądania; do OpenAI idzie tylko zanonimizowany transkrypt (bez imienia, bez UUID). Po JSON od modelu Edge robi `INSERT` do `voice_draft_notes` / `voice_*` **ponownie z tym samym `patient_id`**. Zakaz NER / „Notatka dla Jana…” jako źródło tożsamości — ryzyko RODO (błędne przypisanie) i halucynacji STT/LLM.
 
 ### B.3 Data flow — telemetria Polar AccessLink (wzbogacenie, nie zastąpienie głosu)
 
@@ -120,25 +124,50 @@ sequenceDiagram
 
   Band->>Polar: Sync_hub_placowka
   Polar->>Edge: Webhook_OAuth_payload
-  Note over Edge,DB: Faza 4 — szkielet Edge; Faza 1 DROP iot_gateways
-  Edge->>DB: UPSERT_telemetry_or_polar_tables
-  Note over AI,DB: AI czyta agregaty + voice transcript
-  AI-->>AI: Peace_Letter_activity_mood_only_non_MD
+  Note over Edge,DB: Edge polar-webhook — HMAC; UPSERT polar_* (nie BLE)
+  Edge->>DB: UPSERT_polar_daily_aggregates
+  Note over AI,DB: Agregaty wchodzą do merge Peace Letter jako komfort, nie diagnoza
+  AI-->>AI: activity_mood_sleep_only_non_MD
 ```
+
+Rodzina czyta **`family_wearable_comfort`** (kroki/sen + `last_successful_sync_at`) tylko z przypisaniem **i** zgodą `wearable_family_access`. BPM/HRV — personel org, nie kanał rodziny.
+
+### B.4 Data flow — raport dzienny + powiadomienia (schema gotowa, Edge wysyłki jeszcze nie)
+
+```mermaid
+sequenceDiagram
+  participant Cron as Merge_CRON
+  participant DB as Postgres_RLS
+  participant Staff as Personel
+  participant Notify as Edge_notify
+  participant Family as Rodzina
+
+  Cron->>DB: daily_reports_status_ready
+  Staff->>DB: HITL_approved_then_published
+  Family->>DB: SELECT_family_daily_reports
+  Note over Family,DB: tylko status published
+  Cron->>Notify: po_kolacji_published
+  Notify->>DB: INSERT_notification_deliveries_pending
+  Note over Notify: service_role; recipient ze snapshotu phone/email
+  Notify->>Family: SMS_lub_email
+  Notify->>DB: UPDATE_delivery_sent_or_failed
+```
+
+Wysyłka SMS/e-mail **nie** dzieje się w Postgresie. Tabele `notification_preferences` / `notification_deliveries` + `profiles.phone` są na remote; job Edge jeszcze nie.
 
 ---
 
 ## C. Architektura danych
 
-**Tabele (szczegóły w MASTER_CONTEXT):** `organizations`, `profiles`, `patients`, `daily_logs`, `voice_conversations`, `voice_conversation_turns`, `voice_draft_notes`, `telemetry_logs`, `family_connections`, `consent_ledger`, `polar_*`, `audit_logs` + widoki `family_daily_reports`, `family_wearable_comfort`. Tabela `iot_gateways` **usunięta** (ADR-007).
+**Tabele (szczegóły w MASTER_CONTEXT):** `organizations`, `profiles`, `patients`, `daily_logs` (surowy tor personelu), `daily_reports` (Peace Letter / artefakt rodzinny), `voice_*`, `telemetry_logs`, `family_connections`, `consent_ledger`, `polar_*`, `notification_preferences`, `notification_deliveries`, `audit_logs`, `security_access_logs` + widoki `family_daily_reports`, `family_wearable_comfort`. Tabela `iot_gateways` **usunięta** (ADR-007). Brak czatu i tabeli `devices` w MVP.
 
-**Głos (HLD 2.4.1 / ADR-010):** drafty i tury rozmowy — tylko personel (`org_admin` / `nurse`). Family: brak SELECT. Peace Letter nadal w `daily_logs` po merge + HITL. `voice_conversations.missing_contexts` to `voice_missing_context[]` (`mood`, `meal`, `sleep`, `activity`).
+**Głos (HLD 2.4.1 / ADR-010):** drafty i tury rozmowy — tylko personel (`org_admin` / `nurse`). Family: brak SELECT. Wieczorny merge + HITL zapisuje **`daily_reports`** (status `published`). `daily_logs` zostaje surowym dziennikiem personelu / sensorów — **nie** kanałem rodziny. `voice_conversations.missing_contexts` to `voice_missing_context[]` (`mood`, `meal`, `sleep`, `activity`).
 
 **Telemetria (HLD 2.3.2 / ADR-007 / ADR-009):** Polar AccessLink. Agregaty w `polar_daily_activity` / `polar_sleep_nights` / `polar_heart_rate_daily` / `polar_hrv_nights`. Client SELECT metryk: rodzina z przypisaniem **i** zgodą `wearable_family_access`; personel (`org_admin` / `nurse`) tej samej org (Big Picture). Preferowany DTO rodziny: `family_wearable_comfort` (bez BPM/HRV). `telemetry_logs` = legacy, family bez SELECT. Non-MD: komfort, zero diagnozy.
 
 **OAuth / webhook (Faza 4):** Edge `polar-oauth` + `polar-webhook`. Tokeny w `polar_oauth_secrets`. Sygnatura AccessLink: nagłówek `Polar-Webhook-Signature` (HMAC-SHA256).
 
-**EU AI Act (schema):** `daily_logs.is_ai_generated` + `approved_by_user_id` — transparentność i human oversight przed Peace Letter.
+**EU AI Act (schema):** `daily_reports.ai_model` + `approved_by` / `approved_at` przed `published`. Kolumny HITL na `daily_logs` zostają dla surowego toru personelu.
 
 **`consent_ledger`:** wdrożony (Faza 3) — na start purpose `wearable_family_access`; wpisuje `org_admin`.
 
@@ -147,7 +176,7 @@ sequenceDiagram
 | Warstwa | Polityka |
 |---------|----------|
 | Surowe głosówki (`voice_draft_notes` merged/discarded, tury i rozmowy `merged`/`abandoned`) | 30 dni od `created_at`, potem `cleanup_old_voice_drafts()` (tylko `service_role`) |
-| Hot | Peace Letter / `daily_logs` ~12 miesięcy |
+| Hot | Peace Letter / `daily_reports` ~12 miesięcy |
 | Cold | Po 12 mies. pseudonimizacja / archiwum wg SLA placówki |
 | Archiwum pensjonariusza | `patients.archived_at` + `archived_reason` (`deceased`, `left_facility`, `gdpr_request`) — miękka blokada; twarde Art. 17 = `DELETE patients` (CASCADE na metryki i głos) |
 | Backup | PITR UE; **RTO = 4 h**, **RPO = 1 h** |
@@ -172,7 +201,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 |------------|---------|
 | Kradzież tabletu | Krótki TTL JWT; revoke sesji w Supabase Auth |
 | Wyciek / anomalia | Blokada Edge (runbook); alert adminów; UODO / klient ≤ 24 h |
-| Cross-tenant | RLS + JWT `app_metadata.organization_id` (ADR-006); testy E2E izolacji |
+| Cross-tenant | RLS + JWT `app_metadata.organization_id` (ADR-006) + composite FK `(patient_id, organization_id)`; testy E2E izolacji nadal do zrobienia |
 
 ### D.3 EU AI Act (postawa)
 
@@ -206,7 +235,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 ### Strategia testów
 
-- Unit / E2E: izolacja tenantów (pielęgniarka A ≠ pacjent org B).
+- Unit / E2E: izolacja tenantów (personel domu A ≠ pensjonariusz org B).
 - Guardrails AI: zestaw ≥100 przypadków (prompt injection, wyciek kliniczny, follow-up, godność). CI nie przepuszcza nowego System Promptu, jeśli model wypuści treść kliniczną jako Peace Letter.
 
 ---
@@ -251,7 +280,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 ### H.2 Challenge: Conversational Voice zamiast jednorazowego dyktowania (2.4.0)
 
-**Decyzja (ADR-010):** aktywny asystent — follow-up, separacja kliniki, cenzura godności, wieczorny merge wielu głosówek. Schema `voice_*` jest w MVP; produkcyjny Whisper/GPT Edge = implementacja po Fazie 5 architektury.
+**Decyzja (ADR-010):** aktywny asystent — follow-up, separacja kliniki, cenzura godności, wieczorny merge wielu głosówek. **Zero-Guessing Entity Resolution:** tożsamość pensjonariusza wyłącznie z `patient_id` w payloadzie (karta w UI), nigdy z transkryptu. Schema `voice_*` jest w MVP; produkcyjny Whisper/GPT Edge = implementacja po Fazie 5 architektury.
 
 ---
 
@@ -270,20 +299,23 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Termin | Znaczenie |
 |--------|-----------|
-| `raw_data` | Surowa transkrypcja — tylko personel / backend |
-| `processed_data` | Tekst po Guardrails — Peace Letter dla rodziny |
-| Peace Letter | Empatyczne podsumowanie dnia (bez żargonu klinicznego) — po wieczornym merge + HITL |
+| `raw_data` | Surowa transkrypcja / ingest — tylko personel / backend (`daily_logs`) |
+| `daily_reports.content` | Peace Letter dla rodziny (status `published`) |
+| `processed_data` | Legacy pole na `daily_logs` — nie kanał rodziny |
+| Peace Letter | Empatyczne podsumowanie dnia w `daily_reports` — po merge + HITL + `published`. Nigdy „pacjent” / „chory”. |
 | `voice_conversations` | Stan rozmowy; `missing_contexts voice_missing_context[]` |
 | `voice_draft_notes` | Surowe, niezatwierdzone głosówki przed merge (tylko personel); retencja 30 dni po merge/discard |
-| `pending_clinical_review` | Blokada auto-wysyłki do rodziny do akceptacji |
+| `pending_clinical_review` | Blokada auto-wysyłki do rodziny (kod/JSON — nie copy UI) |
 | Guardrails | Twarde reguły System Prompt + walidacja po stronie Edge (rozmowa, klinika, godność) |
 | RLS | Izolacja wierszy w PostgreSQL |
 | Edge Functions | Deno/TS na brzegu Supabase |
 | Zero-Trust | Brak domyślnego zaufania; weryfikacja JWT / tokenu urządzenia |
 | `telemetry_logs` | Legacy agregaty BLE; family bez SELECT |
-| Polar `polar_*` | Dzienna aktywność, sen, tętno, HRV (ADR-009); ingest = Faza 4 |
+| Polar `polar_*` | Dzienna aktywność, sen, wskaźniki komfortu (ADR-009); ingest = Faza 4 |
 | Polar AccessLink | Cloud-to-cloud Polar 360 (ADR-007) |
 | `consent_ledger` | Zgody; `wearable_family_access` dla kanału rodziny |
+
+**Słownik produktowy (MDR):** w UI / SMS / Peace Letter zakaz „pacjent” i „chory”. SoT: [`MASTER_CONTEXT.md`](MASTER_CONTEXT.md) §1 + `ai-prompt-guardrails.mdc` §3.1. Kod: `patients` / `patient_id` bez zmian.
 
 ---
 
@@ -304,6 +336,11 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Wersja | Data | Zmiana |
 |--------|------|--------|
+| 2.4.6 | 2026-08-18 | Data flow: B.4 raport+powiadomienia; Polar UPSERT tylko `polar_*`; Zero-Guessing już w B.2 |
+| 2.4.5 | 2026-08-18 | Zero-Guessing Entity Resolution: `patient_id` tylko z karty seniora / POST; LLM nie mapuje tożsamości z transkryptu |
+| 2.4.4 | 2026-08-18 | Słownik produktowy MDR: zakaz „pacjent”/„chory” w UX, SMS i System Prompt; kod `patients` bez zmian |
+| 2.4.3 | 2026-08-14 | Product workflow: `daily_reports` + powiadomienia SMS/e-mail (schema); Peace Letter odłączony od `daily_logs`; bez czatu/devices |
+| 2.4.2 | 2026-08-14 | Tenant composite FKs; family DENY na tabelach HR/HRV (DTO `family_wearable_comfort`); `patient_staff_assignments` (jeszcze nie tnie RLS nurse); raport hardening |
 | 2.4.1 | 2026-08-13 | Enum `voice_missing_context[]`; archiwum `patients`; cleanup surowych głosówek 30 dni (`service_role`) |
 | 2.4.0 | 2026-08-13 | Faza 5: Conversational Voice AI (ADR-010) — follow-up, cenzura kliniki/godności, `voice_draft_notes` + wieczorny merge Peace Letter |
 | 2.3.3 | 2026-08-13 | Faza 3 RLS opcja A: staff SELECT Polar; Faza 4 szkielet AccessLink `polar-oauth` + `polar-webhook` (HMAC `Polar-Webhook-Signature`) |

@@ -17,9 +17,9 @@
 
 | ID | Requirement | Source | Status | Evidence | Related ADR |
 |----|-------------|--------|--------|----------|-------------|
-| REQ-SEC-001 | Tenant isolation via RLS + `organization_id` | HLD A.3 / D.2 | IMPLEMENTED | JWT RLS policies — **no automated RLS test** | ADR-006 |
-| REQ-SEC-002 | Family never reads `raw_data` | HLD B.2 / C | IMPLEMENTED | `family_daily_reports` view — **no automated test** | — |
-| REQ-SEC-003 | Audit trail on UPDATE/DELETE | HLD D / ISO posture | IMPLEMENTED | `audit_row_change` triggers — **no automated test** | — |
+| REQ-SEC-001 | Tenant isolation via RLS + `organization_id` | HLD A.3 / D.2 | IMPLEMENTED | catalog FKs/RLS 2026-08-14 — **no JWT RLS E2E** | ADR-006 |
+| REQ-SEC-002 | Family never reads `raw_data` | HLD B.2 / C | IMPLEMENTED | `family_daily_reports` ← `daily_reports` published — catalog pending JWT E2E | — |
+| REQ-SEC-003 | Audit trail on UPDATE/DELETE | HLD D / ISO posture | IMPLEMENTED | append-only trigger + catalog test — **no row-level audit E2E** | — |
 | REQ-DATA-001 | Multi-tenant key = `organization_id` | HLD / MASTER | IMPLEMENTED | schema + helpers — **no isolation E2E** | — |
 | REQ-DATA-002 | 30-day purge of merged/discarded raw voice | HLD C retencja | IMPLEMENTED | `cleanup_old_voice_drafts()` + pg_cron — **no job-run evidence** | — |
 | REQ-AI-001 | No medical Guardrails in browser | HLD B.2 | IMPLEMENTED | architecture (Edge-only AI) — **no FE static check CI** | — |
@@ -31,7 +31,7 @@
 | REQ-AI-007 | Conversational follow-up before Peace Letter | HLD B.2 / ADR-010 | IMPLEMENTED | schema `voice_*` + stub follow-up test — **no Whisper/GPT Edge** | ADR-010 |
 | REQ-AI-008 | Clinical jargon + dignity never in family channel | HLD B.2 / D.3 | PARTIALLY_VERIFIED | stub cases jargon + dignity; not prod LLM | ADR-010 |
 | REQ-IOT-001 | Per-org BLE gateway auth (`iot_gateways`) | HLD C / ADR-002 | SUPERSEDED | DROP `iot_gateways` + removed `ingest-telemetry` (2026-08-13); Polar = ADR-007 | ADR-007 |
-| REQ-IOT-002 | Polar daily aggregates + family SELECT only with consent | HLD C / ADR-009 | IMPLEMENTED | migration + RLS — **no automated RLS test** | ADR-009 |
+| REQ-IOT-002 | Polar daily aggregates + family SELECT only with consent | HLD C / ADR-009 | IMPLEMENTED | family DENY HR/HRV tables; catalog 2026-08-14 — **no JWT E2E** | ADR-009 |
 | REQ-NFR-001 | Availability ≥ 99.5% | HLD A.3 | NOT_IMPLEMENTED | no uptime measurement / SLO evidence | — |
 | REQ-NFR-002 | Note save &lt; 60 s (p95) | HLD A.3 | NOT_IMPLEMENTED | no performance harness | — |
 | REQ-NFR-003 | AI latency &lt; 15 s (p95) | HLD A.3 | NOT_IMPLEMENTED | AI Edge pipeline not shipped | — |
@@ -59,13 +59,18 @@ implementation:
   - supabase/migrations/20260812081000_iot_gateways.sql
   - supabase/migrations/20260813101000_jwt_claims_hook.sql
   - supabase/migrations/20260813132832_drop_iot_gateways.sql
-tests: []
+  - supabase/migrations/20260814103804_enterprise_hardening.sql
+  - supabase/migrations/20260814104307_enterprise_hardening_followup.sql
+tests:
+  - supabase/tests/enterprise_hardening_catalog.sql
 related_decisions:
   - ADR-006
 verification:
   status: IMPLEMENTED
-  method: null
-  evidence: []
+  method: "catalog assertions on linked DB (composite FKs, RLS flags, oauth grants); no JWT impersonation E2E"
+  evidence:
+    - docs/ENTERPRISE_HARDENING_REPORT.md
+    - supabase/tests/enterprise_hardening_catalog.sql
   last_verified: null
   verified_by: null
 ```
@@ -81,7 +86,9 @@ status: IMPLEMENTED
 priority: CRITICAL
 implementation:
   - supabase/migrations/20260717193117_init_multi_tenant_schema.sql
-tests: []
+  - supabase/migrations/20260814112552_product_workflow_and_notifications.sql
+tests:
+  - supabase/tests/product_workflow_catalog.sql
 related_decisions: []
 verification:
   status: IMPLEMENTED
@@ -101,7 +108,9 @@ status: IMPLEMENTED
 priority: HIGH
 implementation:
   - supabase/migrations/20260717193117_init_multi_tenant_schema.sql
-tests: []
+  - supabase/migrations/20260814112552_product_workflow_and_notifications.sql
+tests:
+  - supabase/tests/product_workflow_catalog.sql
 related_decisions: []
 verification:
   status: IMPLEMENTED
@@ -201,6 +210,7 @@ status: IMPLEMENTED
 priority: CRITICAL
 implementation:
   - supabase/migrations/20260812080000_add_ai_compliance.sql
+  - supabase/migrations/20260814103804_enterprise_hardening.sql
 tests: []
 related_decisions:
   - ADR-002
@@ -222,6 +232,7 @@ status: IMPLEMENTED
 priority: HIGH
 implementation:
   - supabase/migrations/20260812080000_add_ai_compliance.sql
+  - supabase/migrations/20260814103804_enterprise_hardening.sql
 tests: []
 related_decisions:
   - ADR-002
@@ -363,13 +374,17 @@ status: IMPLEMENTED
 priority: CRITICAL
 implementation:
   - supabase/migrations/20260813134500_polar_wearable_consent.sql
-tests: []
+  - supabase/migrations/20260814104307_enterprise_hardening_followup.sql
+tests:
+  - supabase/tests/enterprise_hardening_catalog.sql
 related_decisions:
   - ADR-007
   - ADR-009
 verification:
   status: IMPLEMENTED
-  evidence: []
+  method: "catalog: zero family SELECT policies on polar_heart_rate_daily / polar_hrv_nights; no JWT E2E"
+  evidence:
+    - docs/ENTERPRISE_HARDENING_REPORT.md
   last_verified: null
 ```
 

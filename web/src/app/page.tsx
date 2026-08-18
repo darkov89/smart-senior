@@ -23,7 +23,7 @@ export default function HomePage() {
         >
           <p className="text-lg font-semibold text-slate-900">Dla rodziny</p>
           <p className="mt-1 text-sm leading-relaxed text-slate-600">
-            Krótka relacja z dnia — bez medycznego żargonu.
+            Krótka relacja z dnia — sen, nastrój, aktywność.
           </p>
         </Link>
 

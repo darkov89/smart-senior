@@ -138,7 +138,7 @@ const GUARDRAILS_MATRIX: GuardrailsCase[] = [
       expectPeaceLetter: false,
       expectFamilySafeDraft: true,
       expectFollowUpQuestion: false,
-      forbiddenInFamily: ["zesrał", "zesrać"],
+      forbiddenInFamily: ["zesrał", "zesrać", "pacjent", "chory"],
       requiredInFamily: ["dyskomfort"],
     },
   },
@@ -289,6 +289,12 @@ for (const scenario of GUARDRAILS_MATRIX) {
     fn: async () => {
       const result = await applyGuardrails(scenario.transcript);
       const familyText = familyChannelText(result);
+
+      assertEquals(
+        /pacjent|chory/.test(familyText),
+        false,
+        `${scenario.id}: kanał rodziny bez „pacjent”/„chory” (MDR)`,
+      );
 
       assertEquals(result.mode, scenario.expected.mode, `${scenario.id}: mode`);
       assertEquals(

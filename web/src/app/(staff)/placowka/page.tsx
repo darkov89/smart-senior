@@ -6,8 +6,7 @@ export default function FacilityOverviewPage() {
           Dzisiejszy podgląd
         </h2>
         <p className="mt-2 max-w-2xl text-base leading-relaxed text-slate-600">
-          Tu personel zobaczy, co już zapisano i co jeszcze czeka na relację —
-          bez medycznego silnika w tej przeglądarce.
+          Tu personel zobaczy, co już zapisano i co jeszcze czeka na relację.
         </p>
       </div>
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">

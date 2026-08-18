@@ -10,7 +10,7 @@ export default async function FamilyPersonPage({
       <h2 className="text-lg font-semibold tracking-tight">Relacja z dnia</h2>
       <p className="text-base leading-relaxed text-slate-700">
         Tu będzie krótki list od personelu — jak minął dzień, nastrój i aktywność.
-        Bez diagnozy i bez surowych pomiarów.
+        Spokojna relacja: samopoczucie, sen i regeneracja.
       </p>
       <div className="rounded-2xl border border-dashed border-teal-200 bg-white px-4 py-8 text-center">
         <p className="font-medium text-slate-900">Brak zapisu na dziś</p>
