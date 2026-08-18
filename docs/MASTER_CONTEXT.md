@@ -77,9 +77,9 @@ Konfiguracja Next: `web/.env.local` (`NEXT_PUBLIC_SUPABASE_*` only). Legacy: `sr
 
 | Obszar | Stan obecny (MVP) |
 |--------|-------------------|
-| **Git** | `https://github.com/darkov89/smart-senior` — gałąź `main` |
-| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** → `https://smart-senior.pages.dev` (osobny od **`dfcms`**). Git z korzenia repo **nie** jest deployem Next — wgrywa `node_modules`/`workerd`. |
-| **Cloudflare Next.js** | Worker **`smart-senior-web` usunięty** z konta DFCMS (nie mieszamy z `dfcms.pl`). Deploy OpenNext: `cd web && npm run deploy` na koncie Pakietu Spokoju, **bez** `account_id` DFCMS w `web/wrangler.jsonc`. Cutover DNS jeszcze nie. |
+| **Git** | `https://github.com/darkov89/smart-senior` — gałąź `main` (`9c04c2a`). 113 plików tracked, max `web/package-lock.json` ~420 KB; brak `node_modules` / sekrety. |
+| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** LIVE → `https://smart-senior.pages.dev` (8 plików frontu Vanilla, bez `node_modules`). Osobny od **`dfcms`**. |
+| **Cloudflare Next.js** | Worker **`smart-senior-web` usunięty** z konta DFCMS. OpenNext dopiero na koncie Pakietu Spokoju (`cd web && npm run deploy`). |
 | **Supabase `project-ref`** | **`bmughdoqdsjfstxnnjks`** (nazwa: SeniorSmart, region: North EU / Stockholm) |
 | **Org Supabase** | osobna od dfops (`fhjokrekpzahqcskjmul`) |
 | **Lokalny front** | `npm run web:dev` (`web/`); legacy: `npm run deploy:legacy` |
