@@ -2,8 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   decodeJwtAal,
-  homePathForRole,
+  destinationAfterAuth,
   isStaffRole,
+  pathsAreSame,
   roleFromUser,
   staffNeedsAal2,
 } from "@/lib/auth/roles";
@@ -23,6 +24,15 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isAuthCallback(request: NextRequest): boolean {
+  const params = request.nextUrl.searchParams;
+  return (
+    params.has("code") ||
+    params.has("token_hash") ||
+    params.has("type")
   );
 }
 
@@ -62,44 +72,47 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const role = roleFromUser(user);
   const aal = decodeJwtAal(session?.access_token);
   const needsKey = Boolean(user && staffNeedsAal2(role) && aal !== "aal2");
+  const nextPath = user ? destinationAfterAuth(role, aal) : null;
 
   const redirectTo = (path: string) => {
+    if (pathsAreSame(pathname, path)) {
+      return supabaseResponse;
+    }
     const url = request.nextUrl.clone();
     url.pathname = path;
     url.search = path.startsWith("/aktywacja") ? request.nextUrl.search : "";
     return copyCookies(supabaseResponse, NextResponse.redirect(url));
   };
 
+  if (isAuthCallback(request) && isPublicPath(pathname)) {
+    return supabaseResponse;
+  }
+
   if (!user) {
-    if (isPublicPath(pathname) && pathname !== "/logowanie/klucz") {
+    if (isPublicPath(pathname) && pathname !== "/logowanie/klucz" && !pathname.startsWith("/logowanie/klucz/")) {
       return supabaseResponse;
     }
     return redirectTo("/logowanie");
   }
 
   if (pathname === "/") {
-    if (needsKey) return redirectTo("/logowanie/klucz");
-    return redirectTo(homePathForRole(role));
+    return nextPath ? redirectTo(nextPath) : supabaseResponse;
   }
 
-  if (pathname === "/logowanie") {
-    if (needsKey) return redirectTo("/logowanie/klucz");
-    return redirectTo(homePathForRole(role));
+  if (pathname === "/logowanie" || pathname === "/logowanie/") {
+    return nextPath ? redirectTo(nextPath) : supabaseResponse;
   }
 
   if (pathname === "/logowanie/klucz" || pathname.startsWith("/logowanie/klucz/")) {
-    if (!staffNeedsAal2(role)) {
-      return redirectTo(homePathForRole(role));
+    if (needsKey) {
+      return supabaseResponse;
     }
-    if (!needsKey) {
-      return redirectTo(homePathForRole(role));
-    }
-    return supabaseResponse;
+    return nextPath ? redirectTo(nextPath) : redirectTo("/logowanie");
   }
 
   if (pathname.startsWith("/placowka")) {
     if (!isStaffRole(role)) {
-      return redirectTo(homePathForRole(role));
+      return nextPath ? redirectTo(nextPath) : redirectTo("/logowanie");
     }
     if (needsKey) {
       return redirectTo("/logowanie/klucz");
@@ -109,7 +122,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   if (pathname.startsWith("/rodzina")) {
     if (role !== "family") {
-      return redirectTo(homePathForRole(role));
+      return nextPath ? redirectTo(nextPath) : redirectTo("/logowanie");
     }
     return supabaseResponse;
   }

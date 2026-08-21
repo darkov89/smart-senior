@@ -65,3 +65,21 @@ export function homePathForRole(role: AppRole | null): string {
   if (isStaffRole(role)) return "/placowka";
   return "/logowanie";
 }
+
+export function destinationAfterAuth(
+  role: AppRole | null,
+  aal: "aal1" | "aal2",
+): string | null {
+  if (staffNeedsAal2(role) && aal !== "aal2") {
+    return "/logowanie/klucz";
+  }
+  if (role === "family") return "/rodzina";
+  if (isStaffRole(role)) return "/placowka";
+  return null;
+}
+
+export function pathsAreSame(left: string, right: string): boolean {
+  const normalize = (path: string) =>
+    path.length > 1 ? path.replace(/\/+$/, "") : path;
+  return normalize(left) === normalize(right);
+}
