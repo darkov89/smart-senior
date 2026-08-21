@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
-  organizationIdFromUser,
-  roleFromUser,
+  resolveAppRole,
+  resolveOrganizationId,
   type AppRole,
 } from "@/lib/auth/roles";
 import { isPublicSupabaseConfigured } from "@/lib/config";
@@ -13,6 +13,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 export function useSessionUser() {
   const configured = isPublicSupabaseConfigured();
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(configured);
 
   useEffect(() => {
@@ -22,9 +23,10 @@ export function useSessionUser() {
     const supabase = createBrowserSupabaseClient();
     let cancelled = false;
 
-    void supabase.auth.getUser().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data }) => {
       if (!cancelled) {
-        setUser(data.user);
+        setUser(data.session?.user ?? null);
+        setAccessToken(data.session?.access_token ?? null);
         setLoading(false);
       }
     });
@@ -33,6 +35,7 @@ export function useSessionUser() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setAccessToken(session?.access_token ?? null);
     });
 
     return () => {
@@ -41,8 +44,8 @@ export function useSessionUser() {
     };
   }, [configured]);
 
-  const role: AppRole | null = roleFromUser(user);
-  const organizationId = organizationIdFromUser(user);
+  const role: AppRole | null = resolveAppRole(user, accessToken);
+  const organizationId = resolveOrganizationId(user, accessToken);
 
   return { user, role, organizationId, loading };
 }

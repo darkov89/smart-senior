@@ -5,7 +5,7 @@ import {
   destinationAfterAuth,
   isStaffRole,
   pathsAreSame,
-  roleFromUser,
+  resolveAppRole,
   staffNeedsAal2,
 } from "@/lib/auth/roles";
 import { getPublicSupabaseConfig, isPublicSupabaseConfigured } from "@/lib/config";
@@ -69,7 +69,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   } = await supabase.auth.getSession();
 
   const pathname = request.nextUrl.pathname;
-  const role = roleFromUser(user);
+  const role = resolveAppRole(user, session?.access_token);
   const aal = decodeJwtAal(session?.access_token);
   const needsKey = Boolean(user && staffNeedsAal2(role) && aal !== "aal2");
   const nextPath = user ? destinationAfterAuth(role, aal) : null;

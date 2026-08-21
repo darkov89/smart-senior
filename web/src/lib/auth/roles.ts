@@ -9,22 +9,83 @@ export const STAFF_ROLES: readonly AppRole[] = [
   "nurse",
 ];
 
-export function roleFromUser(user: User | null): AppRole | null {
-  const role = user?.app_metadata?.role;
+function parseAppRole(value: unknown): AppRole | null {
   if (
-    role === "superadmin" ||
-    role === "org_admin" ||
-    role === "nurse" ||
-    role === "family" ||
-    role === "iot_device"
+    value === "superadmin" ||
+    value === "org_admin" ||
+    value === "nurse" ||
+    value === "family" ||
+    value === "iot_device"
   ) {
-    return role;
+    return value;
   }
   return null;
 }
 
+function decodeJwtPayload(
+  accessToken: string | null | undefined,
+): Record<string, unknown> | null {
+  if (!accessToken) return null;
+  const payload = accessToken.split(".")[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "=",
+    );
+    const parsed: unknown = JSON.parse(atob(padded));
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function jwtAppMetadata(
+  accessToken: string | null | undefined,
+): Record<string, unknown> | null {
+  const claims = decodeJwtPayload(accessToken);
+  const metadata = claims?.app_metadata;
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    return null;
+  }
+  return metadata as Record<string, unknown>;
+}
+
+export function roleFromUser(user: User | null): AppRole | null {
+  return parseAppRole(user?.app_metadata?.role);
+}
+
+export function roleFromAccessToken(
+  accessToken: string | null | undefined,
+): AppRole | null {
+  return parseAppRole(jwtAppMetadata(accessToken)?.role);
+}
+
+export function resolveAppRole(
+  user: User | null,
+  accessToken?: string | null,
+): AppRole | null {
+  return roleFromUser(user) ?? roleFromAccessToken(accessToken);
+}
+
 export function organizationIdFromUser(user: User | null): string | null {
   const organizationId = user?.app_metadata?.organization_id;
+  return typeof organizationId === "string" && organizationId.length > 0
+    ? organizationId
+    : null;
+}
+
+export function resolveOrganizationId(
+  user: User | null,
+  accessToken?: string | null,
+): string | null {
+  const fromUser = organizationIdFromUser(user);
+  if (fromUser) return fromUser;
+  const organizationId = jwtAppMetadata(accessToken)?.organization_id;
   return typeof organizationId === "string" && organizationId.length > 0
     ? organizationId
     : null;
@@ -43,21 +104,8 @@ export function staffNeedsAal2(role: AppRole | null): boolean {
 }
 
 export function decodeJwtAal(accessToken: string | null | undefined): "aal1" | "aal2" {
-  if (!accessToken) return "aal1";
-  const payload = accessToken.split(".")[1];
-  if (!payload) return "aal1";
-  try {
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(
-      normalized.length + ((4 - (normalized.length % 4)) % 4),
-      "=",
-    );
-    const json = atob(padded);
-    const claims = JSON.parse(json) as { aal?: unknown };
-    return claims.aal === "aal2" ? "aal2" : "aal1";
-  } catch {
-    return "aal1";
-  }
+  const claims = decodeJwtPayload(accessToken);
+  return claims?.aal === "aal2" ? "aal2" : "aal1";
 }
 
 export function homePathForRole(role: AppRole | null): string {

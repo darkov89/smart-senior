@@ -7,7 +7,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import {
   decodeJwtAal,
   destinationAfterAuth,
-  roleFromUser,
+  resolveAppRole,
 } from "@/lib/auth/roles";
 import { isPublicSupabaseConfigured } from "@/lib/config";
 import { humanAuthError } from "@/lib/copy/human-errors";
@@ -56,12 +56,13 @@ export default function LoginPage() {
         }
       }
 
+      await supabase.auth.refreshSession();
       const { data: userData } = await supabase.auth.getUser();
       const { data: sessionData } = await supabase.auth.getSession();
       if (cancelled || !userData.user) return;
 
       const destination = destinationAfterAuth(
-        roleFromUser(userData.user),
+        resolveAppRole(userData.user, sessionData.session?.access_token),
         decodeJwtAal(sessionData.session?.access_token),
       );
       if (destination) {
@@ -101,7 +102,7 @@ export default function LoginPage() {
     }
 
     const destination = destinationAfterAuth(
-      roleFromUser(data.user),
+      resolveAppRole(data.user, data.session.access_token),
       decodeJwtAal(data.session.access_token),
     );
     if (destination) {
@@ -122,11 +123,11 @@ export default function LoginPage() {
             Konto czeka na dostęp
           </h1>
           <p className="mt-2 text-base leading-relaxed text-slate-600">
-            Logowanie się udało, ale to konto nie ma jeszcze przypisanej
-            placówki. Daj znać osobie, która zakładała dostęp.
+            Logowanie się udało, ale to konto nie ma jeszcze roli w Pakiecie
+            Spokoju. Wyloguj się i poproś o ponowne nadanie dostępu.
           </p>
         </div>
-        <SignOutButton />
+        <SignOutButton className={primaryButtonClass} />
       </div>
     );
   }

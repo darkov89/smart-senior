@@ -3,12 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Factor } from "@supabase/supabase-js";
-import { homePathForRole, roleFromUser } from "@/lib/auth/roles";
+import { homePathForRole, resolveAppRole } from "@/lib/auth/roles";
 import { humanAuthError } from "@/lib/copy/human-errors";
 import { fieldClass, labelClass, primaryButtonClass } from "@/lib/styles";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ErrorPanel } from "@/components/ui/ErrorPanel";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function TotpKeyPage() {
   const router = useRouter();
@@ -100,8 +101,13 @@ export default function TotpKeyPage() {
       return;
     }
 
-    const { data } = await supabase.auth.getUser();
-    router.replace(homePathForRole(roleFromUser(data.user)));
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    router.replace(
+      homePathForRole(
+        resolveAppRole(userData.user, sessionData.session?.access_token),
+      ),
+    );
     router.refresh();
   }
 
@@ -149,6 +155,7 @@ export default function TotpKeyPage() {
       <button type="submit" className={primaryButtonClass} disabled={busy}>
         {busy ? "Sprawdzamy kod…" : "Potwierdź"}
       </button>
+      <SignOutButton />
     </form>
   );
 }
