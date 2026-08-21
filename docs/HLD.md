@@ -2,8 +2,8 @@
 
 | Pole | Wartość |
 |------|---------|
-| **Wersja** | 2.4.6 |
-| **Data** | 2026-08-18 |
+| **Wersja** | 2.4.9 |
+| **Data** | 2026-08-21 |
 | **Autor** | Dariusz Olszewski-Rink (Dragonfly Ops) |
 | **Przeznaczenie** | Zespół (SDD), interesariusze, due diligence (VC/grants) |
 | **Strażnik** | Reguła Cursor `architectural-guardian` + skill `.agents/skills/architectural-guardian` |
@@ -29,7 +29,7 @@ Dokument określa wysokopoziomową architekturę (HLD) platformy B2B SaaS „Pak
 | Backend / DB | Supabase (PostgreSQL + Auth + RLS + Edge Functions) | Multi-tenant przez RLS; brak własnego DevOps serwerowego; region UE |
 | Frontend | Next.js App Router + Tailwind + TS (`/web`, ADR-008) na **Cloudflare** (`@opennextjs/cloudflare`) | Edge UE; **zakaz Vercel**; Guardrails zostają na Supabase Edge |
 | AI | OpenAI Whisper + GPT-4o (opcjonalnie Azure OpenAI EU) | Transkrypcja PL + Guardrails; Zero-Data Retention / Enterprise DPA gdy wymagane |
-| Wearables | Polar AccessLink (cloud-to-cloud, ADR-007) | Brak własnych bramek BLE; non-MD (komfort / samopoczucie) |
+| Wearables | **Poza MVP** (ADR-012) | Później własne bramki w placówce — nie Polar AccessLink; non-MD |
 | Komunikacja | SMSAPI + Resend (PL/EU) | Proaktywne Peace Letter bez aplikacji mobilnej rodziny |
 
 **Stan operacyjny projektu (źródło: MASTER_CONTEXT):** Supabase `project-ref` `bmughdoqdsjfstxnnjks`, region **North EU (Stockholm)**; front kanoniczny = Next.js na Cloudflare OpenNext (Worker `smart-senior-web`); legacy Pages `smart-senior` do cutoveru.
@@ -44,7 +44,7 @@ Dokument określa wysokopoziomową architekturę (HLD) platformy B2B SaaS „Pak
 | Wydajność | Zapis notatki &lt; 60 s; latency AI &lt; 15 s | Odciążenie personelu | p95 czasu przetwarzania |
 | Odporność | Kolejka notatek przy braku sieci (przebudowa przy Next.js) | Martwe strefy Wi-Fi | 100% notatek zsynchronizowanych po odzyskaniu sieci |
 | Prywatność | RODO + minimalizacja | ISO 27001 / audyt | Zero incydentów RODO w audycie zewnętrznym |
-| Bezpieczeństwo | Zero-Trust + RLS | Brak wycieku między tenantami | 100% zapytań pod `organization_id` (poza `superadmin`) |
+| Bezpieczeństwo | Zero-Trust + RLS + MFA (AAL2) personelu | Brak wycieku między tenantami; kradzież tabletu bez TOTP | 100% zapytań pod `organization_id` (poza `superadmin`); personel `aal2` na kartach / Peace Letter / szkicach |
 
 ---
 
@@ -55,7 +55,6 @@ Dokument określa wysokopoziomową architekturę (HLD) platformy B2B SaaS „Pak
 ```mermaid
 flowchart LR
   Staff[PersonelPlacowki] -->|NagrywaGlos_z_karty_seniora| Platform[PakietSpokoju]
-  Polar[Polar_AccessLink] -->|CloudToCloud| Platform
   Family[Rodziny] -->|Portal_i_SMS_email| Platform
   Mgmt[ZarzadDomu] -->|SLA_ROI| Platform
   Platform -->|AudioTranskrypcja| Whisper[OpenAI_Whisper_EU]
@@ -112,25 +111,9 @@ sequenceDiagram
 
 **Zero-Guessing Entity Resolution (twardy wymóg):** LLM **nie** zgaduje, którego pensjonariusza dotyczy notatka. Personel nagrywa wyłącznie z cyfrowej karty konkretnego seniora. Next.js **zawsze** wysyła `patient_id` w POST do Edge `voice-assistant`. Edge trzyma `patient_id` w RAM żądania; do OpenAI idzie tylko zanonimizowany transkrypt (bez imienia, bez UUID). Po JSON od modelu Edge robi `INSERT` do `voice_draft_notes` / `voice_*` **ponownie z tym samym `patient_id`**. Zakaz NER / „Notatka dla Jana…” jako źródło tożsamości — ryzyko RODO (błędne przypisanie) i halucynacji STT/LLM.
 
-### B.3 Data flow — telemetria Polar AccessLink (wzbogacenie, nie zastąpienie głosu)
+### B.3 Data flow — telemetria (poza MVP)
 
-```mermaid
-sequenceDiagram
-  participant Band as Polar360
-  participant Polar as Polar_AccessLink
-  participant Edge as Edge_Polar_webhook
-  participant DB as Postgres_RLS
-  participant AI as Edge_AI_Guardrails
-
-  Band->>Polar: Sync_hub_placowka
-  Polar->>Edge: Webhook_OAuth_payload
-  Note over Edge,DB: Edge polar-webhook — HMAC; UPSERT polar_* (nie BLE)
-  Edge->>DB: UPSERT_polar_daily_aggregates
-  Note over AI,DB: Agregaty wchodzą do merge Peace Letter jako komfort, nie diagnoza
-  AI-->>AI: activity_mood_sleep_only_non_MD
-```
-
-Rodzina czyta **`family_wearable_comfort`** (kroki/sen + `last_successful_sync_at`) tylko z przypisaniem **i** zgodą `wearable_family_access`. BPM/HRV — personel org, nie kanał rodziny.
+**Brak ingestu w MVP** (ADR-012). Peace Letter powstaje wyłącznie z głosu personelu (B.2). Portal rodziny pokazuje empty-state karty komfortu („w przygotowaniu”) — zero alarmów z opaski. Faza 3: własne bramki w placówce (nowy ADR; nie Polar AccessLink). `consent_ledger.wearable_family_access` zostaje jako hak na zgody IoT.
 
 ### B.4 Data flow — raport dzienny + powiadomienia (schema gotowa, Edge wysyłki jeszcze nie)
 
@@ -159,17 +142,17 @@ Wysyłka SMS/e-mail **nie** dzieje się w Postgresie. Tabele `notification_prefe
 
 ## C. Architektura danych
 
-**Tabele (szczegóły w MASTER_CONTEXT):** `organizations`, `profiles`, `patients`, `daily_logs` (surowy tor personelu), `daily_reports` (Peace Letter / artefakt rodzinny), `voice_*`, `telemetry_logs`, `family_connections`, `consent_ledger`, `polar_*`, `notification_preferences`, `notification_deliveries`, `audit_logs`, `security_access_logs` + widoki `family_daily_reports`, `family_wearable_comfort`. Tabela `iot_gateways` **usunięta** (ADR-007). Brak czatu i tabeli `devices` w MVP.
+**Tabele (szczegóły w MASTER_CONTEXT):** `organizations`, `profiles`, `patients`, `daily_logs` (surowy tor personelu), `daily_reports` (Peace Letter / artefakt rodzinny), `voice_*`, `daily_agenda` / `daily_agenda_templates` (plan dnia), `family_connections`, `family_invitations` (token 7 dni, bez PII pensjonariusza w linku), `family_messages` (asynchroniczny hydrant rodziny → personel), `consent_ledger` (hak zgód IoT, bez ingestu), `notification_preferences`, `notification_deliveries`, `audit_logs`, `security_access_logs` + widok `family_daily_reports`. Tabele Polar / `telemetry_logs` **usunięte** (ADR-012). `iot_gateways` **usunięta** wcześniej (ADR-007). Brak czatu na żywo i tabeli `devices` w MVP.
 
 **Głos (HLD 2.4.1 / ADR-010):** drafty i tury rozmowy — tylko personel (`org_admin` / `nurse`). Family: brak SELECT. Wieczorny merge + HITL zapisuje **`daily_reports`** (status `published`). `daily_logs` zostaje surowym dziennikiem personelu / sensorów — **nie** kanałem rodziny. `voice_conversations.missing_contexts` to `voice_missing_context[]` (`mood`, `meal`, `sleep`, `activity`).
 
-**Telemetria (HLD 2.3.2 / ADR-007 / ADR-009):** Polar AccessLink. Agregaty w `polar_daily_activity` / `polar_sleep_nights` / `polar_heart_rate_daily` / `polar_hrv_nights`. Client SELECT metryk: rodzina z przypisaniem **i** zgodą `wearable_family_access`; personel (`org_admin` / `nurse`) tej samej org (Big Picture). Preferowany DTO rodziny: `family_wearable_comfort` (bez BPM/HRV). `telemetry_logs` = legacy, family bez SELECT. Non-MD: komfort, zero diagnozy.
+**Telemetria (ADR-012):** poza MVP. Brak Polar AccessLink, brak `polar_*`, brak `telemetry_logs`. Faza 3 = własne bramki (projekt później). Non-MD: gdy ingest wróci — komfort, zero diagnozy, zero alarmów z opaski.
 
-**OAuth / webhook (Faza 4):** Edge `polar-oauth` + `polar-webhook`. Tokeny w `polar_oauth_secrets`. Sygnatura AccessLink: nagłówek `Polar-Webhook-Signature` (HMAC-SHA256).
+**Plan dnia (SC-NUR-05 / SC-FAM-06):** `daily_agenda` + szablony `daily_agenda_templates`. Personel R/W swojej org; rodzina SELECT pozycji wspólnych placówki oraz indywidualnych przy aktywnym `family_connections`.
 
 **EU AI Act (schema):** `daily_reports.ai_model` + `approved_by` / `approved_at` przed `published`. Kolumny HITL na `daily_logs` zostają dla surowego toru personelu.
 
-**`consent_ledger`:** wdrożony (Faza 3) — na start purpose `wearable_family_access`; wpisuje `org_admin`.
+**`consent_ledger`:** wdrożony — purpose `wearable_family_access` jako hak Fazy 3 (własne bramki); wpisuje `org_admin`. Brak ingestu i DTO komfortu w MVP.
 
 ### Retencja i backup
 
@@ -178,10 +161,10 @@ Wysyłka SMS/e-mail **nie** dzieje się w Postgresie. Tabele `notification_prefe
 | Surowe głosówki (`voice_draft_notes` merged/discarded, tury i rozmowy `merged`/`abandoned`) | 30 dni od `created_at`, potem `cleanup_old_voice_drafts()` (tylko `service_role`) |
 | Hot | Peace Letter / `daily_reports` ~12 miesięcy |
 | Cold | Po 12 mies. pseudonimizacja / archiwum wg SLA placówki |
-| Archiwum pensjonariusza | `patients.archived_at` + `archived_reason` (`deceased`, `left_facility`, `gdpr_request`) — miękka blokada; twarde Art. 17 = `DELETE patients` (CASCADE na metryki i głos) |
+| Archiwum pensjonariusza | `patients.archived_at` + `archived_reason` (`deceased`, `left_facility`, `gdpr_request`) — miękka blokada; twarde Art. 17 = `DELETE patients` (CASCADE na głos i plan dnia) |
 | Backup | PITR UE; **RTO = 4 h**, **RPO = 1 h** |
 
-`audit_logs` przy DELETE na tabelach opieki/głosu/Polar zapisuje `old_data.payload = [REDACTED DUE TO GDPR]` (Art. 17). UPDATE nadal trzyma pełny snapshot (ISO). Job `cleanup-old-voice-drafts`: 03:00 Europe/Warsaw (`pg_cron`).
+`audit_logs` przy DELETE na tabelach opieki/głosu zapisuje `old_data.payload = [REDACTED DUE TO GDPR]` (Art. 17). UPDATE nadal trzyma pełny snapshot (ISO). Job `cleanup-old-voice-drafts`: 03:00 Europe/Warsaw (`pg_cron`).
 
 ---
 
@@ -199,9 +182,11 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Zagrożenie | Reakcja |
 |------------|---------|
-| Kradzież tabletu | Krótki TTL JWT; revoke sesji w Supabase Auth |
+| Kradzież tabletu | Krótki TTL JWT; revoke sesji; TOTP — personel (`org_admin` / `nurse` / `superadmin`) czyta karty / Peace Letter / szkice tylko przy JWT `aal=aal2` (ADR-011) |
 | Wyciek / anomalia | Blokada Edge (runbook); alert adminów; UODO / klient ≤ 24 h |
 | Cross-tenant | RLS + JWT `app_metadata.organization_id` (ADR-006) + composite FK `(patient_id, organization_id)`; testy E2E izolacji nadal do zrobienia |
+| Odczyt karty pensjonariusza | `security_access_logs` (VIEW) — **nie** pgAudit session-read (NFR-SEC-01; `pgaudit.log = ddl,role`) |
+| Ponowiony ingest IoT | Poza MVP (ADR-012). Gdy Faza 3: zarchiwizowany `patient_id` odrzuca paczki (Fail Secure) |
 
 ### D.3 EU AI Act (postawa)
 
@@ -264,19 +249,19 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Faza | Termin | Deliverables |
 |------|--------|----------------|
-| **1 MVP** | Q3 2026 | Multi-tenant, Next.js (`/web`), conversational Voice AI + Guardrails (godność/klinika), wieczorny merge Peace Letter, Polar, SMS/e-mail, audyt RODO/ISO; pilotaż Marconi |
+| **1 MVP** | Q3 2026 | Multi-tenant, Next.js (`/web`), conversational Voice AI + Guardrails (godność/klinika), wieczorny merge Peace Letter, plan dnia, SMS/e-mail, audyt RODO/ISO; pilotaż Marconi. **Bez Polar / ingestu IoT.** |
 | **2 Skalowanie** | Q4 2026 | Portale rodzina + admin; produkcyjny Whisper/GPT Edge; kolejne placówki |
-| **3 Ekosystem** | Q1–Q2 2027 | Pełny ekosystem IoT (ring / więcej sensorów), agent Antoś, opcjonalnie EHR/HL7/FHIR |
+| **3 Ekosystem** | Q1–Q2 2027 | Własne bramki w placówce (nie Polar AccessLink), agent Antoś, opcjonalnie EHR/HL7/FHIR |
 
-### H.1 Challenge: Polar AccessLink zamiast bramek BLE (2.3.0)
+### H.1 Challenge: telemetria poza MVP (2.4.9)
 
-**Decyzja (ADR-007 / ADR-009):** cloud-to-cloud Polar AccessLink. Agregaty w tabelach `polar_*`. `telemetry_logs` = legacy. Zgoda rodziny: `consent_ledger.wearable_family_access`.
+**Decyzja (ADR-012):** Polar AccessLink i `polar_*` wycofane z MVP. Brak ingestu. Faza 3 = **własne bramki** w placówce — nowy ADR wtedy, nie powrót do ADR-007. `consent_ledger` zostaje jako hak zgód.
 
-**Cel produktowy:** wzbogacenie raportów głosowych — **nie** ich zastąpienie.
+**Cel produktowy MVP:** głos + Peace Letter + plan dnia. Karta komfortu w portalu rodziny = empty-state „w przygotowaniu”. Zero alarmów z opaski.
 
-**Non-MD / Guardrails / MDR:** system **nie** jest wyrobem medycznym. Sen, HRV, tętno służą wyłącznie opisowi komfortu i samopoczucia. Zakaz diagnozy, triage, alarmów klinicznych z opaski. Peace Letter i UI rodziny: nastrój i aktywność — bez „puls 112”. Personel widzi agregaty Polar na podglądzie placówki (nie jako pulpit diagnostyczny).
+**Non-MD / Guardrails / MDR:** system **nie** jest wyrobem medycznym. Gdy ingest wróci: sen / aktywność wyłącznie jako komfort; zakaz diagnozy, triage, alarmów klinicznych.
 
-**Poza zakresem Fazy 2:** surowy stream próbek, diagnoza, Antoś, EHR.
+**Poza zakresem MVP:** surowy stream, BLE hub, Polar DPA, Antoś, EHR.
 
 ### H.2 Challenge: Conversational Voice zamiast jednorazowego dyktowania (2.4.0)
 
@@ -292,6 +277,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 | OpenAI / Azure OpenAI | AI EU, Zero-Data Retention gdy Enterprise | DPA w umowie Enterprise |
 | Cloudflare | Front Next.js (OpenNext / Workers Assets) + CDN; bez przechowywania treści medycznej | DPA; **zakaz Vercel** (ADR-008) |
 | SMSAPI / Resend | Powiadomienia PL/EU | DPA przy koncie biznesowym |
+| Polar Electro Oy | — | **Poza MVP** (ADR-012). Nie podprocesor, dopóki brak ingestu. |
 
 ---
 
@@ -310,10 +296,9 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 | RLS | Izolacja wierszy w PostgreSQL |
 | Edge Functions | Deno/TS na brzegu Supabase |
 | Zero-Trust | Brak domyślnego zaufania; weryfikacja JWT / tokenu urządzenia |
-| `telemetry_logs` | Legacy agregaty BLE; family bez SELECT |
-| Polar `polar_*` | Dzienna aktywność, sen, wskaźniki komfortu (ADR-009); ingest = Faza 4 |
-| Polar AccessLink | Cloud-to-cloud Polar 360 (ADR-007) |
-| `consent_ledger` | Zgody; `wearable_family_access` dla kanału rodziny |
+| `daily_agenda` | Plan dnia placówki / pensjonariusza (posiłek, aktywność, wizyta) |
+| `consent_ledger` | Zgody RODO; purpose `wearable_family_access` jako hak Fazy 3 (bez ingestu w MVP) |
+| `family_messages` | Krótka wiadomość rodziny do personelu (hydrant); nie czat na żywo, nie `daily_logs` |
 
 **Słownik produktowy (MDR):** w UI / SMS / Peace Letter zakaz „pacjent” i „chory”. SoT: [`MASTER_CONTEXT.md`](MASTER_CONTEXT.md) §1 + `ai-prompt-guardrails.mdc` §3.1. Kod: `patients` / `patient_id` bez zmian.
 
@@ -336,6 +321,9 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Wersja | Data | Zmiana |
 |--------|------|--------|
+| 2.4.9 | 2026-08-21 | ADR-012: Polar i ingest poza MVP; Faza 3 = własne bramki; `daily_agenda`; empty-state komfortu |
+| 2.4.8 | 2026-08-19 | MFA AAL2 personelu (ADR-011); `family_invitations`; idempotencja `polar_webhook_events`; pgAudit DDL/role (bez logowania treści opieki) |
+| 2.4.7 | 2026-08-18 | Hydrant `family_messages`; `family_connections` relationship / primary / status; zgoda IoT nadal tylko `org_admin` (ADR-009) |
 | 2.4.6 | 2026-08-18 | Data flow: B.4 raport+powiadomienia; Polar UPSERT tylko `polar_*`; Zero-Guessing już w B.2 |
 | 2.4.5 | 2026-08-18 | Zero-Guessing Entity Resolution: `patient_id` tylko z karty seniora / POST; LLM nie mapuje tożsamości z transkryptu |
 | 2.4.4 | 2026-08-18 | Słownik produktowy MDR: zakaz „pacjent”/„chory” w UX, SMS i System Prompt; kod `patients` bez zmian |

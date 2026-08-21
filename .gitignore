@@ -12,4 +12,5 @@ node_modules/
 **/workerd
 .DS_Store
 supabase/.temp/
+deno.lock
 *.log

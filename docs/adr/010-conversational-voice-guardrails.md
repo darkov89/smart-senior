@@ -1,7 +1,7 @@
 ---
 status: ACTIVE
 created: 2026-08-13
-updated: 2026-08-18
+updated: 2026-08-21
 source: HLD 2.4.0 / Silver Care MVP v2 Faza 5 (brief Punkt 6)
 supersedes: null
 superseded_by: null
@@ -22,11 +22,11 @@ MVP Punkt 6 wymaga odejścia od jednorazowego dyktowania do **aktywnego asystent
 
 ## Decyzja
 
-1. **Stan rozmowy w DB** — `voice_conversations` + `voice_conversation_turns` + `voice_draft_notes`. Peace Letter (`daily_logs.processed_data`) **dopiero** po wieczornym merge i `approved_by_user_id`.
+1. **Stan rozmowy w DB** — `voice_conversations` + `voice_conversation_turns` + `voice_draft_notes`. Peace Letter (`daily_reports.content`, status `published`) **dopiero** po wieczornym merge i HITL (`approved_by` / `approved_at`). `daily_logs.processed_data` zostaje legacy torem personelu — **nie** kanałem rodziny (HLD 2.4.3).
 2. **Interactive prompting** — jeśli brakuje kontekstu (mood / meal / sleep / activity) albo transkrypt jest zbyt krótki, LLM zwraca `mode: follow_up` i pytanie do personelu. Nie emituje końcowego raportu.
 3. **Separacja kliniki** — żargon (np. arytmia, furosemid) → `staff_internal_notes` / `raw_data`. **Nigdy** Peace Letter ani `family_safe_partial`. Opcja org: `clinical_handling = redact` vs `staff_internal`.
 4. **Godność** — detale drastyczne / inkontynencja generalizować do „dyskomfortu” lub „gorszego samopoczucia”. System Prompt cytuje obowiązek poszanowania godności (Ustawa o pomocy społecznej).
-5. **Merge** — planowany Edge CRON `merge-daily-peace-letters` (wieczór, Europe/Warsaw): zbiera drafty `ready_to_merge` per `(patient_id, local_date)` → jeden Peace Letter + `is_ai_generated`.
+5. **Merge** — planowany Edge CRON `merge-daily-peace-letters` (wieczór, Europe/Warsaw): zbiera drafty `ready_to_merge` per `(patient_id, local_date)` → jeden wiersz `daily_reports` (`ai_model` + HITL przed `published`).
 6. **Family** — brak SELECT na draftach / turach / rozmowach. Transkryptów **nie haszować** (ADR-005).
 7. Kontrakt JSON i System Prompt: `.cursor/rules/ai-prompt-guardrails.mdc`. Testy: `guardrails.test.ts`.
 8. **Zero-Guessing Entity Resolution** — `patient_id` wyłącznie z POST (karta seniora w UI). LLM nie mapuje tożsamości z transkryptu. Edge wiąże INSERT z `patient_id` z żądania.

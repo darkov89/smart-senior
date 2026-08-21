@@ -22,7 +22,7 @@ Decision graph (kanoniczny): [`docs/AGENT_WORKFLOW.md`](../../docs/AGENT_WORKFLO
 Jeśli task dotyczy:
 - **RODO / ISO / NIS2 / AI Act / audyt:** `@compliance-medtech.mdc` + skill references.  
 - **LLM / prompt / RAG / głosówki:** `@ai-prompt-guardrails.mdc` (ADR-010 conversational + godność); przy zmianie AI/testów także `@guardrails-tester.mdc` + `deno test`.  
-- **Telemetria / Polar / `telemetry_logs`:** skill `telemetry-context-provider/SKILL.md` + przy schema/Edge `@supabase-seniorsmart.mdc` (ADR-007; brak `iot_gateways`).  
+- **Telemetria / opaski / bramki:** ADR-012 (poza MVP). Skill `telemetry-context-provider` = DEFERRED. Nie implementuj Polar ani `iot_gateways`. Faza 3 = własne bramki (nowy ADR).  
 - **DB / RLS / Edge:** `@supabase-seniorsmart.mdc` + skill ops.  
 - **Cloudflare (Next OpenNext / legacy Pages):** `@cloudflare-seniorsmart.mdc` + skill ops.  
 - **Front `web/**`:** `@frontend-next.mdc`. Legacy `index.html` / `src/js`:** `@frontend-js.mdc` (nie rozszerzaj).  

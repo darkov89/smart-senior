@@ -1,11 +1,14 @@
 # Enterprise Database Hardening Report
 
 **Project:** Pakiet Spokoju / SeniorSmart (`bmughdoqdsjfstxnnjks`, Stockholm)  
-**Date:** 2026-08-14  
+**Date:** 2026-08-14 (**snapshot** — nie nadpisuje MASTER_CONTEXT)  
 **Scope:** PostgreSQL / Supabase schema, RLS, grants, tenant integrity, Polar secrets, audit, AI provenance  
 **Migrations:** `20260814103804_enterprise_hardening.sql`, `20260814104307_enterprise_hardening_followup.sql`  
 **db push:** succeeded (both)  
 **This report evaluates technical controls only.** It does not claim NIS2, ISO 27001, or EU AI Act legal compliance or certification.
+
+> **Późniejsza zmiana (nie w tym raporcie):** migracja `20260814112552` przebudowała `family_daily_reports` na `security_invoker` z `daily_reports.content` (`status=published`). Zdanie w §2 o SECURITY DEFINER / `processed_data` jest historyczne. Live: MASTER_CONTEXT §5–6.  
+> **2026-08-21 (ADR-012):** tabele Polar / `telemetry_logs` / widok `family_wearable_comfort` usunięte z MVP. Wiersze Polar w tym raporcie są historyczne.
 
 ---
 

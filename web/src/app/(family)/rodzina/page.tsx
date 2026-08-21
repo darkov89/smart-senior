@@ -11,6 +11,15 @@ export default function FamilyHomePage() {
           Gdy personel zapisze notatkę, zobaczysz ją w tym miejscu.
         </p>
       </div>
+      <div className="rounded-2xl bg-slate-100 px-4 py-8 text-center">
+        <p className="font-medium text-slate-900">
+          Funkcja inteligentnych wskaźników komfortu jest w przygotowaniu
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Zostawiamy tu miejsce na przyszłe odczyty samopoczucia — bez alarmów
+          i bez liczb z opaski.
+        </p>
+      </div>
     </section>
   );
 }

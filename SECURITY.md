@@ -31,15 +31,16 @@ Architecture / NFR: [`docs/HLD.md`](docs/HLD.md). Living implementation: [`docs/
 3. **Never expose `service_role` / secret keys** in static HTML/JS, Cloudflare Pages public assets, or git.
 4. **Multi-tenant isolation.** Queries and policies must scope by `organization_id` (except intentional `superadmin` paths).
 5. **Family data minimization.** Families must not receive `raw_data` from `daily_logs`, nor any row from `voice_conversations` / `voice_conversation_turns` / `voice_draft_notes`. Use `family_daily_reports` exposing only `daily_reports.content` when `status=published` after human approval.
-6. **IoT least privilege.** Device identities (`iot_device`) may only `INSERT` sensor logs — no SELECT/UPDATE/DELETE on clinical tables.
+6. **IoT least privilege (Faza 3).** Device identities (`iot_device`) may only `INSERT` sensor logs — no SELECT/UPDATE/DELETE on clinical tables. **MVP has no ingest path** (ADR-012); the role stays dormant.
 7. **Audit.** Prefer triggers / `audit_logs` for UPDATE/DELETE on tenant data (ISO 27001 trail).
-8. **Auth on Edge.** Every Edge Function must verify the Supabase JWT (or a dedicated, rotated device token for IoT) before side effects.
+8. **Auth on Edge.** Every Edge Function must verify the Supabase JWT (or a dedicated, rotated device token for IoT in Faza 3) before side effects. MVP has no Polar webhook exception.
 9. **Secrets.** Store OpenAI / webhook / cron secrets in Supabase Secrets or Cloudflare encrypted env — never in `.env` committed to git. Keep `.env` gitignored; use `.env.example` as the template.
 10. **Separate from DFCMS.** Do not deploy this app to Cloudflare project `dfcms` / `dfopscms` or to DFCMS Supabase projects.
 11. **Identifying PII → hash only.** Stable identifiers such as PESEL are stored as `SHA-256 + salt` (e.g. `pesel_hash`). Never persist plaintext PESEL in DB, UI, logs, or LLM prompts.
 12. **Never hash clinical / note content.** Absolute ban on hashing (or irreversible digesting) medical narrative fields such as `raw_data` and `processed_data`. Care text must remain readable for authorized staff under RLS. Do not propose application-level column encryption (CLE) at this stage.
 13. **Platform crypto baseline.** Rely on Supabase **encryption at rest** and **TLS in transit**, plus RLS and frontend minimization — not on hashing clinical payloads.
 14. **No clinical jargon or dignity-violating detail in the family channel.** Diagnoses, drug names, and graphic/incontinence detail stay in staff-internal logs (`staff_internal_notes` / `raw_data`). Family text may only generalize to comfort / mood (ADR-010). Never hash those narratives (rule 12).
+15. **MFA (AAL2) for privileged staff.** `superadmin` / `org_admin` / `nurse` may read or write `patients`, `daily_reports`, `daily_logs`, `voice_draft_notes` (including `staff_internal_notes`), and `family_invitations` only when the JWT has `aal=aal2` (TOTP). Family and `iot_device` stay on `aal1`. Do not log care-note payloads via pgAudit session read/write (ADR-011).
 
 ### Cryptography posture (ADR-005)
 

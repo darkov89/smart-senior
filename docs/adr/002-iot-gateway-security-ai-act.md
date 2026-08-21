@@ -40,5 +40,5 @@ Trzy luki względem HLD blokowały domknięcie Fazy 2 (telemetria) i compliance 
 
 ## Supersession (2026-08-13)
 
-IoT gateway (`iot_gateways`, `ingest-telemetry`) **zastąpione przez [ADR-007](007-polar-accesslink.md)** (Polar AccessLink).  
+IoT gateway (`iot_gateways`, `ingest-telemetry`) **zastąpione przez [ADR-007](007-polar-accesslink.md)** (Polar AccessLink), następnie **Polar wycofany z MVP** ([ADR-012](012-telemetry-out-of-mvp.md)).  
 **Nie wycofujemy:** `daily_logs.is_ai_generated` + `approved_by_user_id` oraz TDD Guardrails.

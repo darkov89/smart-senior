@@ -20,6 +20,7 @@
 | REQ-SEC-001 | Tenant isolation via RLS + `organization_id` | HLD A.3 / D.2 | IMPLEMENTED | catalog FKs/RLS 2026-08-14 — **no JWT RLS E2E** | ADR-006 |
 | REQ-SEC-002 | Family never reads `raw_data` | HLD B.2 / C | IMPLEMENTED | `family_daily_reports` ← `daily_reports` published — catalog pending JWT E2E | — |
 | REQ-SEC-003 | Audit trail on UPDATE/DELETE | HLD D / ISO posture | IMPLEMENTED | append-only trigger + catalog test — **no row-level audit E2E** | — |
+| REQ-SEC-004 | Privileged staff MFA (JWT `aal2`) on sensitive tables | HLD A.3 / D.2 / ADR-011 | IMPLEMENTED | catalog (patients, daily_reports, voice_draft_notes, family_invitations, daily_logs) — **no TOTP E2E; remote MFA Dashboard still required** | ADR-011 |
 | REQ-DATA-001 | Multi-tenant key = `organization_id` | HLD / MASTER | IMPLEMENTED | schema + helpers — **no isolation E2E** | — |
 | REQ-DATA-002 | 30-day purge of merged/discarded raw voice | HLD C retencja | IMPLEMENTED | `cleanup_old_voice_drafts()` + pg_cron — **no job-run evidence** | — |
 | REQ-AI-001 | No medical Guardrails in browser | HLD B.2 | IMPLEMENTED | architecture (Edge-only AI) — **no FE static check CI** | — |
@@ -27,11 +28,13 @@
 | REQ-AI-003 | Human approval before Peace Letter | HLD D.3 | IMPLEMENTED | `approved_by_user_id` column — **workflow not verified** | ADR-002 |
 | REQ-AI-004 | AI output marked (`is_ai_generated`) | HLD D.3 / Art. 50 | IMPLEMENTED | column on `daily_logs` — **UI/Edge path not verified** | ADR-002 |
 | REQ-AI-005 | Guardrails regression suite | HLD F | PARTIALLY_VERIFIED | `guardrails.test.ts` (6 stub cases: follow-up, klinika, godność, injection; HLD target ≥100; not prod LLM) | ADR-002 / ADR-010 |
-| REQ-AI-006 | Telemetry non-MD (no clinical HR language) | HLD B.3 / H.1 | IMPLEMENTED | skill + ADR + ingest aggregates — **no dedicated non-MD test** | ADR-002 |
+| REQ-AI-006 | Telemetry non-MD (no clinical HR language) | HLD B.3 / H.1 | SUPERSEDED | No ingest in MVP (ADR-012); Guardrails stay for Faza 3 | ADR-012 |
 | REQ-AI-007 | Conversational follow-up before Peace Letter | HLD B.2 / ADR-010 | IMPLEMENTED | schema `voice_*` + stub follow-up test — **no Whisper/GPT Edge** | ADR-010 |
 | REQ-AI-008 | Clinical jargon + dignity never in family channel | HLD B.2 / D.3 | PARTIALLY_VERIFIED | stub cases jargon + dignity; not prod LLM | ADR-010 |
-| REQ-IOT-001 | Per-org BLE gateway auth (`iot_gateways`) | HLD C / ADR-002 | SUPERSEDED | DROP `iot_gateways` + removed `ingest-telemetry` (2026-08-13); Polar = ADR-007 | ADR-007 |
-| REQ-IOT-002 | Polar daily aggregates + family SELECT only with consent | HLD C / ADR-009 | IMPLEMENTED | family DENY HR/HRV tables; catalog 2026-08-14 — **no JWT E2E** | ADR-009 |
+| REQ-IOT-001 | Per-org BLE gateway auth (`iot_gateways`) | HLD C / ADR-002 | SUPERSEDED | DROP `iot_gateways` (2026-08-13); Polar withdrawn (ADR-012) | ADR-012 |
+| REQ-IOT-002 | Polar daily aggregates + family SELECT only with consent | HLD C / ADR-009 | SUPERSEDED | DROP `polar_*` + `family_wearable_comfort` (ADR-012) | ADR-012 |
+| REQ-IOT-003 | Polar webhook idempotency (`polar_event_id`) | HLD C Faza 4 | SUPERSEDED | DROP `polar_webhook_events` + Edge polar-* (ADR-012) | ADR-012 |
+| REQ-IOT-004 | No wearable ingest in MVP | HLD B.3 / H.1 / ADR-012 | IMPLEMENTED | Polar/telemetry tables dropped; no ingest Edge | ADR-012 |
 | REQ-NFR-001 | Availability ≥ 99.5% | HLD A.3 | NOT_IMPLEMENTED | no uptime measurement / SLO evidence | — |
 | REQ-NFR-002 | Note save &lt; 60 s (p95) | HLD A.3 | NOT_IMPLEMENTED | no performance harness | — |
 | REQ-NFR-003 | AI latency &lt; 15 s (p95) | HLD A.3 | NOT_IMPLEMENTED | AI Edge pipeline not shipped | — |
@@ -115,6 +118,32 @@ related_decisions: []
 verification:
   status: IMPLEMENTED
   evidence: []
+  last_verified: null
+```
+
+### REQ-SEC-004
+
+```yaml
+id: REQ-SEC-004
+title: Privileged staff MFA (JWT aal2) on sensitive tables
+source: HLD
+source_section: "A.3 NFR / D.2 Threat model"
+status: IMPLEMENTED
+priority: CRITICAL
+implementation:
+  - supabase/migrations/20260819054459_sec_mfa_idempotency_invitations.sql
+  - supabase/migrations/20260821160211_daily_agenda_pesel_aal2.sql
+  - supabase/config.toml
+  - docs/adr/011-mfa-aal2-staff-sensitive-tables.md
+tests:
+  - supabase/tests/product_workflow_catalog.sql
+related_decisions:
+  - ADR-011
+verification:
+  status: IMPLEMENTED
+  method: "catalog 2026-08-19 on linked DB: 3 restrictive AAL2 policies; no TOTP enrollment E2E"
+  evidence:
+    - supabase/tests/product_workflow_catalog.sql
   last_verified: null
 ```
 
@@ -274,18 +303,19 @@ id: REQ-AI-006
 title: Wearable telemetry must not produce clinical diagnoses
 source: HLD
 source_section: "B.3 / H.1 non-MD"
-status: IMPLEMENTED
+status: SUPERSEDED
 priority: CRITICAL
-implementation:
-  - .agents/skills/telemetry-context-provider/SKILL.md
-  - supabase/migrations/20260811185009_add_telemetry_logs.sql
+implementation: []
 tests: []
 related_decisions:
-  - ADR-002
+  - ADR-012
 verification:
-  status: IMPLEMENTED
-  evidence: []
-  last_verified: null
+  status: SUPERSEDED
+  method: "No wearable ingest in MVP; non-MD Guardrails remain in ai-prompt-guardrails for Faza 3"
+  evidence:
+    - docs/adr/012-telemetry-out-of-mvp.md
+  last_verified: 2026-08-21
+  superseded_by: REQ-IOT-004 / ADR-012
 ```
 
 ### REQ-AI-007
@@ -361,7 +391,7 @@ verification:
     - "DROP TABLE iot_gateways (20260813132832); ingest-telemetry removed from repo"
   last_verified: 2026-08-13
   verified_by: agent session
-  superseded_by: REQ-IOT-002 / ADR-007 / ADR-009
+  superseded_by: REQ-IOT-004 / ADR-012
 
 ### REQ-IOT-002
 
@@ -370,25 +400,68 @@ id: REQ-IOT-002
 title: Polar 360 daily aggregates with family SELECT only when assignment + wearable consent
 source: HLD
 source_section: "C / ADR-009"
-status: IMPLEMENTED
+status: SUPERSEDED
 priority: CRITICAL
 implementation:
   - supabase/migrations/20260813134500_polar_wearable_consent.sql
-  - supabase/migrations/20260814104307_enterprise_hardening_followup.sql
-tests:
-  - supabase/tests/enterprise_hardening_catalog.sql
+tests: []
 related_decisions:
-  - ADR-007
-  - ADR-009
+  - ADR-012
 verification:
-  status: IMPLEMENTED
-  method: "catalog: zero family SELECT policies on polar_heart_rate_daily / polar_hrv_nights; no JWT E2E"
+  status: SUPERSEDED
+  method: "Polar schema dropped from MVP (ADR-012)"
   evidence:
-    - docs/ENTERPRISE_HARDENING_REPORT.md
-  last_verified: null
+    - docs/adr/012-telemetry-out-of-mvp.md
+  last_verified: 2026-08-21
+  superseded_by: REQ-IOT-004 / ADR-012
 ```
 
+### REQ-IOT-003
 
+```yaml
+id: REQ-IOT-003
+title: Polar webhook idempotency via polar_event_id
+source: HLD
+source_section: "C OAuth / webhook Faza 4"
+status: SUPERSEDED
+priority: HIGH
+implementation:
+  - supabase/migrations/20260819054459_sec_mfa_idempotency_invitations.sql
+tests: []
+related_decisions:
+  - ADR-012
+verification:
+  status: SUPERSEDED
+  method: "polar-webhook Edge and polar_webhook_events dropped (ADR-012)"
+  evidence:
+    - docs/adr/012-telemetry-out-of-mvp.md
+  last_verified: 2026-08-21
+  superseded_by: REQ-IOT-004 / ADR-012
+```
+
+### REQ-IOT-004
+
+```yaml
+id: REQ-IOT-004
+title: No wearable ingest in MVP
+source: HLD
+source_section: "B.3 / H.1 / ADR-012"
+status: IMPLEMENTED
+priority: CRITICAL
+implementation:
+  - docs/adr/012-telemetry-out-of-mvp.md
+  - supabase/migrations/20260821160210_drop_polar_and_telemetry.sql
+  - supabase/migrations/20260821160211_daily_agenda_pesel_aal2.sql
+tests:
+  - supabase/tests/product_workflow_catalog.sql
+  - supabase/tests/enterprise_hardening_catalog.sql
+related_decisions:
+  - ADR-012
+verification:
+  status: IMPLEMENTED
+  method: "catalog: polar_* and telemetry_logs absent; no polar Edge functions"
+  evidence: []
+  last_verified: null
 ```
 
 ### REQ-NFR-001

@@ -24,7 +24,7 @@ Load this file for privacy reviews, DPIA-lite, family/patient data design, reten
 |-----------|---------|------------------|
 | **Lawfulness, fairness, transparency** | Valid legal basis; clear notices | Product/legal: privacy notice + contracts with care homes; code: no dark patterns in consent UI |
 | **Purpose limitation** | Only stated care/reporting purposes | Do not reuse logs for unrelated analytics without basis |
-| **Data minimization** | Adequate, relevant, limited | `patients`: name + initial + `pesel_hash` + room — not full PESEL in cleartext; family → `processed_data` only |
+| **Data minimization** | Adequate, relevant, limited | `patients`: name + initial + `pesel_hash` + room — not full PESEL in cleartext; family → `daily_reports.content` / `family_daily_reports` only (`published`) |
 | **Accuracy** | Keep data correct | Allow staff correction paths; avoid silent AI overwrite without audit |
 | **Storage limitation** | Retention limits | Define retention for `daily_logs`, audio, `audit_logs`; implement delete/anonymize jobs (process + code) |
 | **Integrity & confidentiality** | Appropriate security | RLS, Edge auth, TLS (platform), no secrets in client — see `SECURITY.md` |
@@ -140,7 +140,7 @@ DPIA (process doc) should cover: voice → AI → storage → family sharing. Ag
 | Accountability | `audit_logs` + triggers; `SECURITY.md` |
 | Purpose / AI | Edge Functions only; Guardrails system prompt server-side |
 | Tenant isolation | `organization_id` on all tenant tables |
-| Special data handling | Separate `raw_data` vs `processed_data` |
+| Special data handling | `raw_data` / `voice_*` staff-only; family = `daily_reports` published |
 
 ---
 

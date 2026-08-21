@@ -1,10 +1,10 @@
 ---
-status: ACTIVE
+status: SUPERSEDED
 created: 2026-08-13
-updated: 2026-08-13
+updated: 2026-08-21
 source: HLD 2.3.2 / Silver Care MVP v2
 supersedes: ADR-002 (IoT gateway auth + BLE ingest only)
-superseded_by: null
+superseded_by: ADR-012
 confidence: HIGH
 ---
 
@@ -12,7 +12,7 @@ confidence: HIGH
 
 | Pole | Wartość |
 |------|---------|
-| **Status** | ACTIVE |
+| **Status** | SUPERSEDED |
 | **Data** | 2026-08-13 |
 | **Autor** | Architekt Systemu + Agent |
 
@@ -35,3 +35,7 @@ Własne bramki BLE (`iot_gateways` + Edge `ingest-telemetry`) były wąskim gard
 - Historyczne migracje `20260812081000_*` zostają w git (już zaaplikowane).
 - REQ-IOT-001 (auth bramki BLE) → SUPERSEDED.
 - Skill `telemetry-context-provider` czyta nadal `telemetry_logs` (non-MD) do czasu schematu Polar.
+
+## Supersession
+
+- Zastąpione przez: [ADR-012](012-telemetry-out-of-mvp.md) (Polar i ingest poza MVP; później własne bramki).

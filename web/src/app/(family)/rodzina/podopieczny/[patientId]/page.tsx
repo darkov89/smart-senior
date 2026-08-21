@@ -18,6 +18,14 @@ export default async function FamilyPersonPage({
           Jak tylko pojawi się zatwierdzona relacja, pokażemy ją tutaj.
         </p>
       </div>
+      <div className="rounded-2xl bg-slate-100 px-4 py-8 text-center">
+        <p className="font-medium text-slate-900">
+          Funkcja inteligentnych wskaźników komfortu jest w przygotowaniu
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Plan dnia i relacja od personelu są niezależne od opaski.
+        </p>
+      </div>
     </section>
   );
 }

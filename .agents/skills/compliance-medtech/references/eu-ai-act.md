@@ -133,8 +133,8 @@ When using general-purpose AI (Whisper/GPT class):
 Aligned with HLD §B.2:
 
 ```
-Nurse voice → Edge Whisper → Edge GPT + Guardrails → draft processed_data
-    → human staff review / edit → only then family channel
+Nurse voice → Edge Whisper → Edge GPT + Guardrails → voice_draft_notes
+    → evening merge → daily_reports (ready) → human staff review → published family channel
 ```
 
 | Do | Don’t |
@@ -162,8 +162,8 @@ Nurse voice → Edge Whisper → Edge GPT + Guardrails → draft processed_data
 
 | Obligation | Artefact |
 |------------|----------|
-| No clinical AI in browser | Edge-only Guardrails; Alpine = UI |
-| Human oversight | Staff review before family `processed_data` / send |
+| No clinical AI in browser | Edge-only Guardrails; Next.js `/web` = UI (legacy Alpine not extended) |
+| Human oversight | Staff review before `daily_reports.published` / send |
 | Transparency | UI copy; `log_type` `ai_report`; metadata model/version (implement when Edge lands) |
 | Traceability | `audit_logs`; Edge logs without secret leakage |
 | Robustness / misuse | Guardrails regression set (HLD); prompt-injection tests |

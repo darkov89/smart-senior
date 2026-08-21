@@ -32,23 +32,24 @@ Pracujesz w trybie **Spec Driven Development** na platformie Pakiet Spokoju. Zan
 1. **Która faza roadmapy HLD §H?** MVP / Skalowanie / Ekosystem — nie ciągnij Fazę 3 do MVP bez aktualizacji HLD.
 2. **Gdzie żyje logika?** Treść medyczna / Guardrails / kategoryzacja / urgency → **tylko Edge**. Frontend = UI + offline queue + JWT.
 3. **Tenant + role:** nowa tabela/endpoint → RLS + `organization_id` + `app_role` (patrz MASTER_CONTEXT).
-4. **Rodzina:** wyłącznie `processed_data` / Peace Letter; nigdy `raw_data` w kliencie family.
+4. **Rodzina:** wyłącznie `daily_reports` / widok `family_daily_reports` (`status=published`); nigdy `raw_data` ani `voice_*` w kliencie family.
 5. **Degraded mode (HLD §E):** offline, AI down, SMS down — czy zmiana łamie odporność?
 6. **NFR (HLD §A.3):** notatka &lt; 60 s, AI &lt; 15 s, uptime 99.5% — czy regresja?
 7. **Dane w UE + sekrety:** brak `service_role` / OpenAI we froncie Cloudflare; deploy Next = OpenNext `smart-senior-web`; legacy Pages `smart-senior`; project-ref SeniorSmart. **Nie Vercel.**
 
-## Znane challenge’e (HLD 2.4.0)
+## Znane challenge’e (HLD 2.4.9)
 
 | Temat | Obowiązuje |
 |-------|------------|
 | Region Supabase | **Stockholm** (nie Frankfurt) |
-| `consent_ledger` | **Wdrożony** — purpose `wearable_family_access` (ADR-009); inne cele później |
+| `consent_ledger` | **Wdrożony** — purpose `wearable_family_access` jako hak Fazy 3; inne cele później |
 | Antoś / pełne IoT / EHR | Faza 3 ekosystemu HLD §H — nie ciągnij tu |
-| Telemetria | **ADR-007/009** — `polar_*`; family SELECT ze zgodą; personel SELECT w swojej org; tokeny tylko Edge |
+| Telemetria | **ADR-012** — poza MVP; brak Polar/ingestu; później własne bramki (nie AccessLink) |
 | Front | **ADR-008** — Next.js `/web` na Cloudflare OpenNext; **zakaz Vercel**; legacy Vanilla nie rozszerzaj |
-| Voice AI | **ADR-010** — rozmowa + drafty `voice_*`; Zero-Guessing (`patient_id` z karty, nie z LLM); Peace Letter po merge + HITL; family bez SELECT na transkryptach |
-| AI Act schema | `daily_logs.is_ai_generated` + `approved_by_user_id` przed Peace Letter |
+| Voice AI | **ADR-010** — rozmowa + drafty `voice_*`; Zero-Guessing (`patient_id` z karty, nie z LLM); Peace Letter = `daily_reports` po merge + HITL; family bez SELECT na transkryptach |
+| AI Act schema | `daily_reports.ai_model` + `approved_by` / `approved_at` przed `published` (kolumny HITL na `daily_logs` zostają dla surowego toru) |
 | RLS tenancy | **ADR-006** — JWT `app_metadata` (Auth Hook); nie SECURITY DEFINER na `profiles` |
+| MFA personelu | **ADR-011** — JWT `aal=aal2` (TOTP) na `patients`, `daily_reports`, `daily_logs`, `voice_draft_notes`, `family_invitations` |
 
 ## Challenge & Human-in-the-Loop (Fail Secure)
 

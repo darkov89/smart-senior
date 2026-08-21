@@ -6,21 +6,16 @@ WITH expected_fks AS (
     'daily_logs_patient_org_fkey',
     'consent_ledger_patient_org_fkey',
     'family_connections_patient_org_fkey',
-    'polar_connections_patient_org_fkey',
-    'polar_daily_activity_patient_org_fkey',
-    'polar_sleep_nights_patient_org_fkey',
-    'polar_heart_rate_daily_patient_org_fkey',
-    'polar_hrv_nights_patient_org_fkey',
     'voice_conversations_patient_org_fkey',
     'voice_draft_notes_patient_org_fkey',
-    'telemetry_logs_patient_org_fkey',
     'patient_staff_assignments_patient_org_fkey',
     'patient_staff_assignments_profile_org_fkey',
-    'polar_sync_runs_connection_org_fkey',
     'security_access_logs_patient_org_fkey',
     'family_connections_profile_org_fkey',
     'consent_ledger_profile_org_fkey',
-    'voice_conversation_turns_conv_org_fkey'
+    'voice_conversation_turns_conv_org_fkey',
+    'family_invitations_patient_org_fkey',
+    'daily_agenda_patient_org_fkey'
   ]) AS conname
 ),
 fk_missing AS (
@@ -30,12 +25,17 @@ fk_missing AS (
     SELECT 1 FROM pg_constraint c WHERE c.conname = e.conname AND c.contype = 'f'
   )
 ),
-oauth_grants AS (
-  SELECT grantee, privilege_type
-  FROM information_schema.role_table_grants
-  WHERE table_schema = 'public'
-    AND table_name = 'polar_oauth_secrets'
-    AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+polar_tables AS (
+  SELECT c.relname
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND c.relname IN (
+      'polar_connections', 'polar_daily_activity', 'polar_sleep_nights',
+      'polar_heart_rate_daily', 'polar_hrv_nights', 'polar_sync_runs',
+      'polar_oauth_secrets', 'polar_webhook_events', 'telemetry_logs'
+    )
 ),
 rls_off AS (
   SELECT c.relname
@@ -45,21 +45,18 @@ rls_off AS (
     AND c.relkind = 'r'
     AND c.relrowsecurity = false
     AND c.relname IN (
-      'patient_staff_assignments', 'polar_sync_runs', 'security_access_logs',
-      'polar_oauth_secrets', 'audit_logs', 'daily_logs', 'patients'
+      'patient_staff_assignments', 'security_access_logs',
+      'audit_logs', 'daily_logs', 'patients',
+      'family_invitations', 'daily_agenda', 'daily_agenda_templates'
     )
 )
 SELECT jsonb_build_object(
   'missing_composite_fks', (SELECT coalesce(jsonb_agg(conname), '[]'::jsonb) FROM fk_missing),
-  'oauth_client_grants', (SELECT coalesce(jsonb_agg(oauth_grants), '[]'::jsonb) FROM oauth_grants),
+  'polar_tables_present', (SELECT coalesce(jsonb_agg(relname), '[]'::jsonb) FROM polar_tables),
   'rls_disabled_tables', (SELECT coalesce(jsonb_agg(relname), '[]'::jsonb) FROM rls_off),
   'has_staff_assignments', EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'patient_staff_assignments'
-  ),
-  'has_polar_sync_runs', EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'polar_sync_runs'
   ),
   'has_security_access_logs', EXISTS (
     SELECT 1 FROM information_schema.tables
@@ -96,12 +93,9 @@ SELECT jsonb_build_object(
         OR with_check ILIKE '%family%'
       )
   ),
-  'family_hr_hrv_select_policies', (
-    SELECT count(*) FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename IN ('polar_heart_rate_daily', 'polar_hrv_nights')
-      AND cmd = 'SELECT'
-      AND policyname ILIKE '%family%'
+  'family_wearable_comfort_gone', NOT EXISTS (
+    SELECT 1 FROM pg_views
+    WHERE schemaname = 'public' AND viewname = 'family_wearable_comfort'
   ),
   'hook_search_path', (
     SELECT proconfig FROM pg_proc
@@ -118,7 +112,6 @@ SELECT jsonb_build_object(
         'cleanup_old_voice_drafts',
         'custom_access_token_hook',
         'family_can_access_patient',
-        'family_has_wearable_consent',
         'patient_is_active',
         'conversation_patient_is_active',
         'log_security_access',

@@ -1,10 +1,10 @@
 ---
-status: ACTIVE
+status: SUPERSEDED
 created: 2026-08-13
-updated: 2026-08-13
+updated: 2026-08-21
 source: HLD 2.3.2 / Silver Care MVP v2 Faza 3
 supersedes: null
-superseded_by: null
+superseded_by: ADR-012
 confidence: HIGH
 ---
 
@@ -12,7 +12,7 @@ confidence: HIGH
 
 | Pole | Wartość |
 |------|---------|
-| **Status** | ACTIVE |
+| **Status** | SUPERSEDED |
 | **Data** | 2026-08-13 |
 | **Autor** | Architekt Systemu + Agent |
 
@@ -40,3 +40,7 @@ Personel (`org_admin` / `nurse`) ma SELECT metryk Polar w swojej org (Big Pictur
 - Brak zgody = puste tabele Polar dla JWT family (Fail Secure).
 - Tokeny AccessLink wyłącznie w `polar_oauth_secrets` (brak GRANT dla authenticated).
 - REQ-IOT-002: IMPLEMENTED, nie VERIFIED (brak testów E2E RLS).
+
+## Supersession
+
+- Zastąpione przez: [ADR-012](012-telemetry-out-of-mvp.md). Tabela `consent_ledger` zostaje (hak na Faza 3); schema Polar i widok `family_wearable_comfort` usunięte.

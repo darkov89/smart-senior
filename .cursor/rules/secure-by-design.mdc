@@ -17,7 +17,7 @@ Projekt przetwarza dane wrażliwe (zdrowotne) i podlega surowym regulacjom. Poni
 ## 2. Inżynieria EU AI Act (Mikro-wymogi Always-On)
 - **Znakowanie AI:** Wynik LLM prezentowany użytkownikowi MUSI być oznaczony (np. `is_ai_generated: true`).
 - **Sanityzacja Promptów:** W promptach do LLM **zakaz** surowych identyfikatorów pensjonariusza (PESEL, pełne imię i nazwisko powiązane ze stanem zdrowia). W treści dla rodziny **zakaz** słów pacjent / chory (MDR — `ai-prompt-guardrails` §3.1).
-- **Human Oversight Trigger:** Decyzje AI wpływające na opiekę wymagają zatwierdzenia (`approved_by_user_id`).
+- **Human Oversight Trigger:** Decyzje AI wpływające na opiekę wymagają zatwierdzenia (`daily_reports.approved_by` przed `published`; na surowym torze `daily_logs.approved_by_user_id`).
 
 ## 3. Kryptografia danych (ADR-005) — twarde
 - **Identyfikatory PII (PESEL i podobne):** wyłącznie `SHA-256 + salt` (np. kolumna `pesel_hash`). **Zakaz** plaintext PESEL w DB, UI, logach i promptach.
@@ -28,15 +28,15 @@ Projekt przetwarza dane wrażliwe (zdrowotne) i podlega surowym regulacjom. Poni
 ## 4. Zarządzanie Sekretami
 - Nigdy nie hardkoduj kluczy API, haseł ani tokenów w kodzie (FE/BE).
 - Edge: `Deno.env.get()`; lokalnie `.env` gitignored. Frontend: wyłącznie publishable/anon key.
-- Deploy tylko Cloudflare Pages **`smart-senior`** + Supabase **`bmughdoqdsjfstxnnjks`** (nie DFCMS).
+- Deploy: Cloudflare OpenNext Worker **`smart-senior-web`** (Next `/web`) + legacy Pages **`smart-senior`** + Supabase **`bmughdoqdsjfstxnnjks`**. Nie DFCMS, nie Vercel.
 
 ## Preferred patterns
 
 | Need | Pattern |
 |------|---------|
-| Family reports | `family_daily_reports` / Edge DTO — tylko `processed_data` |
-| Voice → summary | Edge: Whisper → tura follow-up/draft (`voice_*`) → wieczorny merge → `daily_logs` + `is_ai_generated` |
-| Human oversight | `approved_by_user_id` przed kanałem rodzinnym |
+| Family reports | widok `family_daily_reports` ← `daily_reports.content` przy `status=published` (nie `daily_logs.processed_data`) |
+| Voice → summary | Edge: Whisper → tura follow-up/draft (`voice_*`) → wieczorny merge → `daily_reports` + HITL `approved_by` |
+| Human oversight | `daily_reports.approved_by` / `approved_at` przed `published` |
 | Staff UI | Next.js (`/web`) + PostgREST pod RLS; zero lokalnego „AI cleanup”. Legacy Alpine nie rozszerzaj. |
 | Secrets | Supabase Secrets / CF env; `.env` lokalnie |
 | PESEL / ID PII | `SHA-256 + salt` → `pesel_hash` (nigdy plaintext) |

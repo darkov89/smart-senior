@@ -46,8 +46,8 @@ Kod zawsze w **najczystszej i najbardziej skalowalnej** formie. Preferuj czyteln
 ## Struktura repo (kierunek skalowania)
 
 ```
-web/                      → Next.js (Faza 2); placeholder Faza 1
-index.html / src/js/      → legacy Vanilla (do usunięcia w Fazie 2)
+web/                      → Next.js App Router (kanon, ADR-008)
+index.html / src/js/      → legacy Vanilla (nie rozszerzaj; cutover Faza 2)
 supabase/migrations/      → schema + RLS
 supabase/functions/       → backend / AI
 docs/MASTER_CONTEXT.md    → mapa decyzji

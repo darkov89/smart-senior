@@ -20,6 +20,31 @@
       "source": "project",
       "sourceType": "local",
       "path": ".agents/skills/clean-scalable-code"
+    },
+    "architectural-guardian": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/architectural-guardian"
+    },
+    "product-ui-craft": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/product-ui-craft"
+    },
+    "ai-prompt-guardrails": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/ai-prompt-guardrails"
+    },
+    "compliance-medtech": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/compliance-medtech"
+    },
+    "telemetry-context-provider": {
+      "source": "project",
+      "sourceType": "local",
+      "path": ".agents/skills/telemetry-context-provider"
     }
   }
 }

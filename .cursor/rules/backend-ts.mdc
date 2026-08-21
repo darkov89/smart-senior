@@ -20,6 +20,6 @@ alwaysApply: false
 ## Preferowane wzorce
 
 - Structured Outputs / JSON Schema dla odpowiedzi LLM
-- Family channel: wyłącznie `processed_data` — nigdy `raw_data`
+- Family channel: wyłącznie `daily_reports.content` / `family_safe_partial` — nigdy `raw_data` / `voice_*`
 - Testy Guardrails: `supabase/functions/tests/` + reguła `guardrails-tester.mdc`
 - Szczegóły czystości: `clean-scalable-code.mdc`; ops: `supabase-seniorsmart.mdc`

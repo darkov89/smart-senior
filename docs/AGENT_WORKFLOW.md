@@ -5,7 +5,7 @@
 Model: **Single Developer + Skill Lenses + Second Brain 2.0**.  
 Jeden agent-developer — bez multi-agent. Pamięć projektu: *remember broadly, retrieve narrowly*.
 
-**Wersja mapy:** 2026-08-13 · ADR-003/004/007/008/009/010 · HLD 2.4.0 · Requirements Traceability
+**Wersja mapy:** 2026-08-21 · ADR-003/004/006/008/010/011/012 · HLD 2.4.9 · Requirements Traceability
 
 ---
 
@@ -86,8 +86,8 @@ Po klasyfikacji taska **nie** ładuj całego Second Brain. Preferuj:
 
 ### UI / copy / spacing
 
-- `product-ui-craft.mdc`, `frontend-js.mdc` (glob)
-- Ewentualnie fragment `index.html` / `src/js/*` w scope  
+- `product-ui-craft.mdc`, `frontend-next.mdc` (glob `web/**`)
+- Legacy tylko gdy scope to `index.html` / `src/js/*`: `frontend-js.mdc`  
 - **Nie:** IoT, compliance refs, pełny HLD, wszystkie ADR
 
 ### Database / RLS / migracje
@@ -96,7 +96,7 @@ Po klasyfikacji taska **nie** ładuj całego Second Brain. Preferuj:
 - `REQ-SEC-*`, `REQ-DATA-*` (wąski slice z `REQUIREMENTS_TRACEABILITY.md`)
 - `supabase-seniorsmart` (+ `schema-seniorsmart.md` gdy schema)
 - `secure-by-design` / HITL jeśli RLS/RBAC
-- ACTIVE ADR dotyczące tabeli (np. ADR-009 przy Polar / zgodzie; ADR-006 przy RLS)
+- ACTIVE ADR dotyczące tabeli (np. ADR-012 przy telemetrii; ADR-006 przy RLS)
 - LESSONS tylko przy dziwnym błędzie DB  
 - **Nie:** product-ui craft całość, Cloudflare checklist bez deployu
 
@@ -111,10 +111,11 @@ Po klasyfikacji taska **nie** ładuj całego Second Brain. Preferuj:
 
 ### IoT / telemetria
 
-- `telemetry-context-provider/SKILL.md`
-- `REQ-IOT-*`, `REQ-AI-006`
-- MASTER §7a; ADR-007; ADR-009; `supabase-seniorsmart` przy schema/Edge
-- **Nie:** UI craft, chyba że ekran personelu
+- **ADR-012** (poza MVP) + `REQ-IOT-004`
+- MASTER §7a; `consent_ledger` jako hak Fazy 3
+- **Nie** implementuj Polar / `iot_gateways` / `telemetry_logs`
+- Skill `telemetry-context-provider` = DEFERRED
+- **Nie:** UI craft, chyba że empty-state komfortu w portalu rodziny
 
 ### Offline / NFR / sync
 
@@ -195,7 +196,7 @@ Gdy task dotyka CRITICAL `REQ-*`:
 | `supabase-seniorsmart` + schema ref | DB / RLS / Edge |
 | `cloudflare-seniorsmart` | OpenNext Worker / legacy Pages / Wrangler |
 | `frontend-js` / `frontend-next` / `backend-ts` | Legacy FE JS / Next `web/` / Edge TS |
-| `telemetry-context-provider` | Polar / telemetry / Peace Letter+IoT |
+| `telemetry-context-provider` | DEFERRED (ADR-012) — nie ładuj na MVP |
 | `second-brain-librarian` | Memory Check / Write-Back / docs |
 
 ### Docs pamięci
@@ -216,7 +217,7 @@ HLD · MASTER_CONTEXT · SECURITY · `docs/adr/*` · LESSONS_LEARNED · **`docs/
 |------------|-----------|------------------|
 | 1. Spacing przycisku | UI lenses only | **No** REQ / No Write-Back |
 | 2. Kolumna / RLS `daily_logs` | MASTER + REQ-SEC/DATA + supabase | **B** (+ **F** status) |
-| 3. Zmiana auth telemetrii | ADR-007, REQ-IOT-*, MASTER §7a | **B+C+E+F** |
+| 3. Zmiana auth telemetrii | ADR-012, REQ-IOT-004, MASTER §7a | **B+C+E+F** (HITL — poza MVP) |
 | 4. RLS 30 min sleuthing | LESSONS → fix | **D** (± F) |
 | 5. MASTER vs ADR sprzeczne | Contradiction Protocol | E + HITL jeśli hard gate |
 | A–E (REQ suite) | patrz `REQUIREMENTS_TRACEABILITY.md` | Implementation ≠ VERIFIED |
@@ -228,5 +229,6 @@ HLD · MASTER_CONTEXT · SECURITY · `docs/adr/*` · LESSONS_LEARNED · **`docs/
 1. Nie duplikuj substancji w pointer skillach.  
 2. Zmiana routingu / Memory → `living-context` potem **ten** plik.  
 3. Tenant `organization_id`; deploy OpenNext `smart-senior-web` + legacy Pages `smart-senior` + `bmughdoqdsjfstxnnjks`. **Nie Vercel.**  
-4. IoT ingest = Polar AccessLink (ADR-007); brak `iot_gateways`.  
-5. Nie twórz `architektura-XYZ.md` ani vector DB „bo Second Brain”.
+4. IoT ingest = poza MVP (ADR-012); Faza 3 = własne bramki, nie Polar. Brak `iot_gateways`.  
+5. Peace Letter = `daily_reports` (HLD 2.4.3 / ADR-010); nie `daily_logs.processed_data`.  
+6. Nie twórz `architektura-XYZ.md` ani vector DB „bo Second Brain”.

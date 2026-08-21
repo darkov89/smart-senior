@@ -34,7 +34,7 @@ cat supabase/.temp/project-ref
 - Migracje: `supabase migration new <name>` — nie wymyślaj nazw plików.  
 - Baseline: `supabase/migrations/20260717193117_init_multi_tenant_schema.sql`  
 - Helpery RLS: JWT `app_metadata.role` / `organization_id` (ADR-006); `family_can_access_patient(uuid)` dla przypisań rodziny  
-- Telemetria: ADR-007/009 Polar `polar_*`; `telemetry_logs` legacy; **brak** `iot_gateways`  
+- Telemetria: **poza MVP** (ADR-012). Brak `polar_*` / `telemetry_logs`. Faza 3 = własne bramki (nowy ADR). `consent_ledger` zostaje jako hak. **brak** `iot_gateways`  
 - Głos: ADR-010 `voice_*` — family bez SELECT; Peace Letter po merge + HITL; transkryptów nie haszować  
 - Family: widok `family_daily_reports` — nigdy testuj safety przez `select *` z `daily_logs`
 

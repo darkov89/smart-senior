@@ -64,7 +64,7 @@ OpenAI down → kolejka notatek (`voice_draft_notes`), brak utraty danych, retry
 - [ ] Oznaczenie AI + audit / model id
 - [ ] Human oversight na ścieżce rodzinnej
 - [ ] Testy prompt-injection / Guardrails (HLD: zestaw regresji)
-- [ ] Telemetria (jeśli w kontekście): skill `telemetry-context-provider` — non-MD, zakaz arytmia/tachykardia/niepokojący puls; Peace Letter tylko nastrój/aktywność
+- [ ] Telemetria: poza MVP (ADR-012). Nie wstrzykuj metryk z opaski do Peace Letter. Non-MD Guardrails zostają na Faza 3.
 - [ ] Krótka / niekompletna notatka → `follow_up`, nie Peace Letter
 - [ ] Żargon kliniczny i detale godności odfiltrowane z kanału rodziny
 - [ ] Merge wieczorny, nie jednorazowy dump transkryptu
@@ -101,7 +101,7 @@ Stan rozmowy: `voice_conversations` + `voice_conversation_turns`. Surowe klipy: 
 Automatycznie wykrywaj żargon medyczny (diagnozy, leki, procedury — np. „arytmia”, „podano furosemid”).
 
 - Zapis **wyłącznie** w `staff_internal_notes` / `raw_data` (personel).
-- **Pod żadnym pozorem** w Peace Letter, `processed_data`, `family_safe_partial`.
+- **Pod żadnym pozorem** w Peace Letter, `family_safe_partial` ani `daily_reports.content`. (Pole JSON `processed_data` w turze follow_up zostaje `null` — to nie jest kanał rodziny w DB.)
 - `clinical_handling`: `staff_internal` (domyślnie) albo `redact` (ustawienie prywatności org).
 - Treści klinicznej **nie haszować** (ADR-005).
 

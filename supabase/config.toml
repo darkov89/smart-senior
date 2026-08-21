@@ -294,9 +294,10 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# Privileged staff (org_admin / nurse / superadmin) need aal2 on sensitive RLS (ADR-011).
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
@@ -411,13 +412,3 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.onboard-organization]
 enabled = true
 verify_jwt = true
-
-# Polar AccessLink OAuth — JWT checked in-function (callback has no Bearer)
-[functions.polar-oauth]
-enabled = true
-verify_jwt = false
-
-# Polar AccessLink webhook — HMAC Polar-Webhook-Signature (not end-user JWT)
-[functions.polar-webhook]
-enabled = true
-verify_jwt = false
