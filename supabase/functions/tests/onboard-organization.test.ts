@@ -62,11 +62,21 @@ Deno.test("orgAdminAppMetadata binds the new tenant id", () => {
   });
 });
 
-Deno.test("inviteRedirectUrl uses SITE_URL /logowanie and rejects junk", () => {
+Deno.test("inviteRedirectUrl prefers SITE_URL and never returns localhost", () => {
   assertEquals(
     inviteRedirectUrl("https://smart-senior.pages.dev/"),
     "https://smart-senior.pages.dev/logowanie",
   );
-  assertEquals(inviteRedirectUrl(undefined), undefined);
-  assertEquals(inviteRedirectUrl("javascript:alert(1)"), undefined);
+  assertEquals(
+    inviteRedirectUrl(undefined),
+    "https://smart-senior.pages.dev/logowanie",
+  );
+  assertEquals(
+    inviteRedirectUrl("http://127.0.0.1:3000"),
+    "https://smart-senior.pages.dev/logowanie",
+  );
+  assertEquals(
+    inviteRedirectUrl("javascript:alert(1)"),
+    "https://smart-senior.pages.dev/logowanie",
+  );
 });

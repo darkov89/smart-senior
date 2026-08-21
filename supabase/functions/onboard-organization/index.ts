@@ -8,6 +8,7 @@
  * would recurse; admin email is not an organizations column).
  *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, SITE_URL?
+ * SITE_URL optional — loopback/missing falls back to https://smart-senior.pages.dev/logowanie.
  * verify_jwt = true — caller must be authenticated superadmin.
  */
 
@@ -167,7 +168,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           full_name: body.adminFullName,
           organization_name: body.orgName,
         },
-        ...(redirectTo ? { redirectTo } : {}),
+        redirectTo,
       });
 
     if (inviteError || !invited.user) {

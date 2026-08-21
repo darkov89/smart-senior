@@ -89,15 +89,30 @@ export function parseOnboardBody(payload: unknown): OnboardInput {
   };
 }
 
+export const PUBLIC_APP_URL = "https://smart-senior.pages.dev";
+
 export function isSuperadminRole(role: string): boolean {
   return role === "superadmin";
 }
 
-export function inviteRedirectUrl(siteUrl: string | undefined): string | undefined {
-  if (!siteUrl) return undefined;
-  const trimmed = siteUrl.trim().replace(/\/+$/, "");
-  if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) {
-    return undefined;
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "::1"
+  );
+}
+
+export function inviteRedirectUrl(siteUrl: string | undefined): string {
+  const fallback = `${PUBLIC_APP_URL}/logowanie`;
+  const trimmed = (siteUrl ?? "").trim().replace(/\/+$/, "");
+  if (!trimmed.startsWith("https://")) return fallback;
+  try {
+    const parsed = new URL(trimmed);
+    if (isLoopbackHost(parsed.hostname)) return fallback;
+  } catch {
+    return fallback;
   }
   return `${trimmed}/logowanie`;
 }
