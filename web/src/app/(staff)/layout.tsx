@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function StaffLayout({
   children,
@@ -14,22 +15,32 @@ export default function StaffLayout({
         </p>
         <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Placówka</h1>
-          <nav className="flex flex-wrap gap-3 text-sm font-medium">
+          <nav className="flex flex-wrap items-center gap-3 text-sm font-medium">
             <Link
               href="/placowka"
               className="text-brand-800 underline-offset-2 hover:underline"
             >
-              Podgląd dnia
+              Tablica
+            </Link>
+            <Link
+              href="/placowka/zatwierdzenia"
+              className="text-brand-800 underline-offset-2 hover:underline"
+            >
+              Wieczorne zatwierdzenie
+            </Link>
+            <Link
+              href="/placowka/plan-dnia"
+              className="text-brand-800 underline-offset-2 hover:underline"
+            >
+              Plan dnia
             </Link>
             <Link
               href="/placowka/uprawnienia"
               className="text-brand-800 underline-offset-2 hover:underline"
             >
-              Uprawnienia
+              Podopieczni
             </Link>
-            <Link href="/" className="text-slate-600 hover:text-slate-900">
-              Wróć
-            </Link>
+            <SignOutButton />
           </nav>
         </div>
       </header>

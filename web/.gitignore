@@ -36,6 +36,7 @@ yarn-error.log*
 
 # Cloudflare OpenNext
 .open-next/
+.pages-deploy/
 .wrangler/
 
 # do not use Vercel for this app (ADR-008)

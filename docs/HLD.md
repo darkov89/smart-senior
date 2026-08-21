@@ -2,7 +2,7 @@
 
 | Pole | Wartość |
 |------|---------|
-| **Wersja** | 2.4.9 |
+| **Wersja** | 2.4.10 |
 | **Data** | 2026-08-21 |
 | **Autor** | Dariusz Olszewski-Rink (Dragonfly Ops) |
 | **Przeznaczenie** | Zespół (SDD), interesariusze, due diligence (VC/grants) |
@@ -32,7 +32,7 @@ Dokument określa wysokopoziomową architekturę (HLD) platformy B2B SaaS „Pak
 | Wearables | **Poza MVP** (ADR-012) | Później własne bramki w placówce — nie Polar AccessLink; non-MD |
 | Komunikacja | SMSAPI + Resend (PL/EU) | Proaktywne Peace Letter bez aplikacji mobilnej rodziny |
 
-**Stan operacyjny projektu (źródło: MASTER_CONTEXT):** Supabase `project-ref` `bmughdoqdsjfstxnnjks`, region **North EU (Stockholm)**; front kanoniczny = Next.js na Cloudflare OpenNext (Worker `smart-senior-web`); legacy Pages `smart-senior` do cutoveru.
+**Stan operacyjny projektu (źródło: MASTER_CONTEXT):** Supabase `project-ref` `bmughdoqdsjfstxnnjks`, region **North EU (Stockholm)**; front kanoniczny = Next.js na Cloudflare Pages `smart-senior` (`https://smart-senior.pages.dev`, OpenNext).
 
 > **Challenge vs wcześniejsze drafty HLD:** część materiałów mówiła „Frankfurt”. **Obowiązuje region faktycznie podlinkowany** (Stockholm). **Hosting frontu: nie Vercel.** Adapter Next.js = `@opennextjs/cloudflare` (nie `@cloudflare/next-on-pages`). Dane medyczne zostają w Supabase Stockholm — Cloudflare serwuje UI.
 
@@ -216,7 +216,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 |-----|------|
 | DEV | Supabase CLI / lokalnie (opcjonalnie Docker) |
 | STAGING | Lustro chmurowe, dane zanonimizowane |
-| PRODUCTION | EU, osobne sekrety, Cloudflare OpenNext (`/web`); legacy Pages `smart-senior` do cutoveru |
+| PRODUCTION | EU, osobne sekrety, Cloudflare Pages `smart-senior` (`/web` OpenNext) |
 
 ### Strategia testów
 
@@ -275,7 +275,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 |----------|------|-------------|
 | Supabase | DB/Auth/Edge UE | DPA / SCC — akceptacja przed prod medyczną |
 | OpenAI / Azure OpenAI | AI EU, Zero-Data Retention gdy Enterprise | DPA w umowie Enterprise |
-| Cloudflare | Front Next.js (OpenNext / Workers Assets) + CDN; bez przechowywania treści medycznej | DPA; **zakaz Vercel** (ADR-008) |
+| Cloudflare | Front Next.js (OpenNext na Pages `smart-senior`) + CDN; bez przechowywania treści medycznej | DPA; **zakaz Vercel** (ADR-008) |
 | SMSAPI / Resend | Powiadomienia PL/EU | DPA przy koncie biznesowym |
 | Polar Electro Oy | — | **Poza MVP** (ADR-012). Nie podprocesor, dopóki brak ingestu. |
 
@@ -321,6 +321,7 @@ Szczegóły inżynierskie: [`SECURITY.md`](../SECURITY.md). Normy: skill `compli
 
 | Wersja | Data | Zmiana |
 |--------|------|--------|
+| 2.4.10 | 2026-08-21 | Front Next.js na Pages `smart-senior.pages.dev` (OpenNext `_worker.js`); Worker `smart-senior-web` wycofany |
 | 2.4.9 | 2026-08-21 | ADR-012: Polar i ingest poza MVP; Faza 3 = własne bramki; `daily_agenda`; empty-state komfortu |
 | 2.4.8 | 2026-08-19 | MFA AAL2 personelu (ADR-011); `family_invitations`; idempotencja `polar_webhook_events`; pgAudit DDL/role (bez logowania treści opieki) |
 | 2.4.7 | 2026-08-18 | Hydrant `family_messages`; `family_connections` relationship / primary / status; zgoda IoT nadal tylko `org_admin` (ADR-009) |

@@ -74,7 +74,7 @@ Trigger `audit_row_change` zapisuje UPDATE/DELETE (kto, kiedy, IP). Klienci tylk
 
 | Table | Tenant column | Notes |
 |-------|---------------|--------|
-| `organizations` | `id` | `settings_json` |
+| `organizations` | `id` | `name`, `address`, `resident_limit`, `settings_json`; INSERT tylko `superadmin` |
 | `profiles` | `organization_id` | PK = `auth.users.id`; `phone` do SMS |
 | `patients` | `organization_id` | `pesel_hash` UNIQUE per org; `last_name_initial`; `archived_at` / `archived_reason` |
 | `daily_logs` | `organization_id` | surowy tor personelu; family bez SELECT; AAL2 personelu |
@@ -112,6 +112,7 @@ Trigger `audit_row_change` on UPDATE/DELETE including `consent_ledger`, `voice_*
 ## RLS (ADR-006 / ADR-012)
 
 Tenant + role from JWT `app_metadata`.  
+`organizations` INSERT: tylko `superadmin` (`organizations_superadmin_insert`). `resident_limit` zmienia wyłącznie superadmin / service_role (trigger).  
 SECURITY DEFINER: `family_can_access_patient(uuid)`, `log_security_access(...)`.  
 MFA: restrictive AAL2 for `superadmin` / `org_admin` / `nurse` on `patients`, `daily_reports`, `daily_logs`, `voice_draft_notes`, `family_invitations` (ADR-011). Family stays `aal1`.  
 Voice drafts/turns: staff org R/W; family **no** SELECT (ADR-010). Transkryptów nie haszować (ADR-005).

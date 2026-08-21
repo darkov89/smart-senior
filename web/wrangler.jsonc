@@ -1,5 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // Local preview only (`npm run preview`). Production is Pages project `smart-senior`
+  // (`npm run deploy` → scripts/deploy-to-pages.mjs). Do not wrangler-deploy this
+  // Worker — it would recreate smart-senior-web.dfcms.workers.dev.
   "name": "smart-senior-web",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-13",

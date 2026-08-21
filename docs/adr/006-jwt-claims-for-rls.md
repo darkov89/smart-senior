@@ -1,7 +1,7 @@
 ---
 status: ACTIVE
 created: 2026-08-13
-updated: 2026-08-13
+updated: 2026-08-21
 source: HLD / MASTER_CONTEXT §6 / implementacja custom_access_token_hook
 supersedes: null
 superseded_by: null
@@ -30,8 +30,9 @@ Numer pliku **006** (nie 003): ADR-003 jest zajęty przez Second Brain 2.0.
 4. Usunięto helpery RLS-only: `current_organization_id`, `current_profile_role`, `is_superadmin`, `is_org_staff`, `is_family`, `is_iot_device`.
 5. **Zostaje** `family_can_access_patient(uuid)` — lista przypisań rodziny nie mieści się w claims; to nadal lookup `family_connections`.
 6. **Zostaje** `audit_row_change` (trigger audytu, nie RLS).
-7. Edge `onboard-organization`: superadmin tworzy org + `inviteUserByEmail` + profil `org_admin`.
+7. Edge `onboard-organization` (wywołanie z aplikacji Super Admina, **nie** Database Webhook): JWT `app_metadata.role = superadmin` → INSERT `organizations` (`gen_random_uuid()`) → Admin API `inviteUserByEmail` + `updateUserById` (`app_metadata.role = org_admin`, `organization_id`) → profil `org_admin`. Rola nigdy w `user_metadata`. Webhook/trigger HTTP odrzucony: INSERT idzie `service_role` (rekurencja) i e-mail admina nie jest kolumną org.
 8. Hook **musi** być włączony w Dashboard (Auth → Hooks). Bez tego JWT nie ma claims i RLS odcina dostęp (Fail Secure).
+9. `organizations` INSERT: wyłącznie polityka `organizations_superadmin_insert` (`app_metadata.role = superadmin`). Enum to `superadmin`, nie `super_admin`.
 
 ## Konsekwencje
 

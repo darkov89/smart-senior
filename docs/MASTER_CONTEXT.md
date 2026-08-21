@@ -4,7 +4,7 @@
 > **Decyzje HLD / NFR / roadmapa:** [`HLD.md`](HLD.md) — nie duplikuj tu ekonomiki ani pełnego HLD.  
 > Security policy: [`SECURITY.md`](../SECURITY.md). Strażnik: reguła `architectural-guardian`.
 
-**Ostatnia aktualizacja treści:** 2026-08-21 — ADR-012: Polar/ingest poza MVP; `daily_agenda`; UNIQUE `pesel_hash`; AAL2 na `daily_logs`
+**Ostatnia aktualizacja treści:** 2026-08-21 — Next.js na Pages `smart-senior.pages.dev`; Worker `smart-senior-web` usunięty
 
 ---
 
@@ -52,17 +52,19 @@ Backend: Whisper / GPT, kategoryzacja, empatyczne podsumowania, walidacja JWT, z
 | Warstwa | Technologia | Artefakty |
 |--------|-------------|-----------|
 | **Frontend** | Next.js App Router + Tailwind + TS (`/web`, ADR-008) | `web/src/app/**` |
-| **Hosting frontu** | Cloudflare OpenNext — Worker **`smart-senior-web`**. Legacy Pages `smart-senior`. **Zakaz Vercel.** | izolacja od DFCMS |
+| **Hosting frontu** | Cloudflare Pages **`smart-senior`** → `https://smart-senior.pages.dev` (OpenNext `_worker.js`). **Zakaz Vercel.** Nie projekt `dfcms`. | izolacja od DFCMS |
 | **Backend / DB** | Supabase (PostgreSQL, Auth, RLS) | `supabase/migrations/`, projekt **SeniorSmart** |
-| **Logika serwerowa** | Supabase Edge Functions (Deno) | `supabase/functions/` — `onboard-organization`; głos/merge/notify jeszcze nie. Polar Edge usunięty (ADR-012). |
+| **Logika serwerowa** | Supabase Edge Functions (Deno) | `onboard-organization`, `hash-pesel` (JWT), `redeem-family-invitation` (token publiczny). Głos/merge/notify jeszcze nie. Polar Edge usunięty (ADR-012). |
 | **AI** | OpenAI — Whisper (transkrypcja), GPT-4o (kategoryzacja + podsumowania + System Prompt / Guardrails) | tylko Edge / backend |
 
 ### Struktura frontendu
 
 ```
-web/src/app/               → Next.js App Router (Faza 2)
-  (family)/rodzina/        → portal rodziny (mobile-first)
-  (staff)/placowka/        → portal personelu (podgląd + uprawnienia)
+web/src/app/               → Next.js App Router (ADR-008)
+  logowanie/               → e-mail/hasło + TOTP AAL2 (`/logowanie/klucz`)
+  aktywacja/               → redeem zaproszenia rodziny
+  (family)/rodzina/        → Peace Letter + plan dnia + hydrant
+  (staff)/placowka/        → tablica, karta podopiecznego, zatwierdzenia, plan dnia
 index.html                 → LEGACY Alpine — nie rozszerzaj
 src/js/                    → LEGACY — do cutoveru
 ```
@@ -78,8 +80,8 @@ Konfiguracja Next: `web/.env.local` (`NEXT_PUBLIC_SUPABASE_*` only). Legacy: `sr
 | Obszar | Stan obecny (MVP) |
 |--------|-------------------|
 | **Git** | `https://github.com/darkov89/smart-senior` — gałąź `main` (`9c04c2a`). 113 plików tracked, max `web/package-lock.json` ~420 KB; brak `node_modules` / sekrety. |
-| **Cloudflare Pages (legacy)** | projekt **`smart-senior`** LIVE → `https://smart-senior.pages.dev` (8 plików frontu Vanilla, bez `node_modules`). Osobny od **`dfcms`**. |
-| **Cloudflare Next.js** | Worker **`smart-senior-web` usunięty** z konta DFCMS. OpenNext dopiero na koncie Pakietu Spokoju (`cd web && npm run deploy`). |
+| **Cloudflare Pages** | projekt **`smart-senior` LIVE** → `https://smart-senior.pages.dev` (Next.js OpenNext). Vanilla zastąpiony 2026-08-21. Osobny od **`dfcms`**. |
+| **Cloudflare Next.js** | Ten sam projekt Pages (nie Worker `smart-senior-web`; skrypt usunięty 2026-08-21). Cutover DNS własnej domeny nie. |
 | **Supabase `project-ref`** | **`bmughdoqdsjfstxnnjks`** (nazwa: SeniorSmart, region: North EU / Stockholm) |
 | **Org Supabase** | osobna od dfops (`fhjokrekpzahqcskjmul`) |
 | **Lokalny front** | `npm run web:dev` (`web/`); legacy: `npm run deploy:legacy` |
@@ -117,7 +119,7 @@ Słowny opis „co jak działa i po co”: [`.agents/skills/supabase-seniorsmart
 
 | Tabela | Rola |
 |--------|------|
-| `organizations` | Domy opieki (`name`, `settings_json`) |
+| `organizations` | Domy opieki (`name`, `address`, `resident_limit`, `settings_json`); INSERT tylko JWT `superadmin` |
 | `profiles` | Rozszerzenie `auth.users` — `organization_id`, `role`, `full_name`, `phone` (SMS) |
 | `patients` | Pensjonariusze — minimalizacja (`first_name`, `last_name_initial`, `pesel_hash` UNIQUE per org, `room`); opcjonalnie `archived_at` / `archived_reason` |
 | `daily_logs` | Notatki / sensory / raporty AI — `raw_data`, `processed_data` (tor personelu; **nie** kanał rodziny) |
@@ -129,7 +131,7 @@ Słowny opis „co jak działa i po co”: [`.agents/skills/supabase-seniorsmart
 | `voice_draft_notes` | Surowe głosówki przed wieczornym merge — `transcript`, `staff_internal_notes`, `family_safe_partial`; cleanup 30 dni po merge/discard |
 | `daily_agenda` | Plan dnia (posiłek / aktywność / wizyta); communal XOR `patient_id` |
 | `daily_agenda_templates` | Szablony dnia placówki; tylko personel |
-| `consent_ledger` | Zgody RODO; purpose `wearable_family_access` (hak Fazy 3; brak ingestu w MVP) |
+| `consent_ledger` | Zgody RODO; purpose `wearable_family_access` (hak Fazy 3) oraz `family_portal_access` przy aktywacji zaproszenia |
 | `family_connections` | Powiązanie profilu rodziny ↔ pensjonariusz (`relationship`, `is_primary_contact`, `status`) |
 | `family_invitations` | Zaproszenia rodziny: token 7 dni, `org_admin` swojej org; family DENY |
 | `family_messages` | Hydrant asynchroniczny rodziny → personel; nie Peace Letter, nie czat na żywo |
@@ -148,7 +150,8 @@ Enterprise hardening: `20260814103804_enterprise_hardening.sql` + `2026081410430
 Product workflow: `20260814112552_product_workflow_and_notifications.sql` — `db push` OK.  
 Family hydrant + relacje: `20260818190805_family_connections_chat_and_consents.sql` — `db push` OK. Typy: `web/src/types/database.ts`.  
 MFA + zaproszenia: `20260819054459_sec_mfa_idempotency_invitations.sql`. ADR-011.  
-Polar DROP + plan dnia: `20260821160210_drop_polar_and_telemetry.sql` + `20260821160211_daily_agenda_pesel_aal2.sql` (ADR-012). Typy: `web/src/types/database.ts`.
+Polar DROP + plan dnia: `20260821160210_drop_polar_and_telemetry.sql` + `20260821160211_daily_agenda_pesel_aal2.sql` (ADR-012). Typy: `web/src/types/database.ts`.  
+Onboarding placówki: `20260821174403_task_infra_02_onboarding.sql` — `address` / `resident_limit`; INSERT `organizations` tylko `superadmin`.
 
 ### Widok rodzinny
 
@@ -204,7 +207,9 @@ Polar DROP + plan dnia: `20260821160210_drop_polar_and_telemetry.sql` + `2026082
 
 Helpery SECURITY DEFINER **pozostawione:** `family_can_access_patient(uuid)`. Trigger audytu: `audit_row_change()`.
 
-**Onboarding B2B:** Edge `onboard-organization` (tylko `superadmin`) — INSERT `organizations` + `auth.admin.inviteUserByEmail` + profil `org_admin`.
+**Onboarding B2B (TASK-INFRA-02):** Edge `onboard-organization` — wywołanie z JWT `superadmin` (nie lookup `profiles`, nie Database Webhook). INSERT `organizations` (`id` = `gen_random_uuid()`, opcjonalnie `address` / `resident_limit`) + `inviteUserByEmail` + `app_metadata` `{ role: org_admin, organization_id }` + profil `org_admin`. Limit podopiecznych chroniony triggerem (zmiana tylko `superadmin` / `service_role`). RLS INSERT: `organizations_superadmin_insert`. Enum roli = `superadmin` (nie `super_admin`).
+
+**PESEL:** Edge `hash-pesel` (personel JWT) — SHA-256 + `PESEL_HASH_SALT`; front nigdy nie haszuje. **Zaproszenie rodziny:** Edge `redeem-family-invitation` (`verify_jwt=false`, token w body) — konto `family` + `family_connections` + zgoda `family_portal_access`. Family nie ma SELECT na `family_invitations`.
 
 **Auth Hook:** aktywować w Dashboard (Authentication → Hooks → Custom Access Token). Po zmianie roli/org — refresh sesji.
 
@@ -266,10 +271,9 @@ Rodziny widzą wyłącznie opublikowany Peace Letter. Drafty / transkrypty — t
 
 | Co | Jak |
 |----|-----|
-| **Front Next.js** | `cd web && npm run deploy` (OpenNext Worker `smart-senior-web`) — **nie** na koncie DFCMS, **nie** Git build z korzenia repo. Publiczne `NEXT_PUBLIC_SUPABASE_*` w Variables + `web/.env.production` przed buildem. **Nie Vercel.** |
-| **Front legacy** | `npm run deploy:legacy` → Pages `smart-senior` (**nie** `dfcms`) |
+| **Front Next.js** | `cd web && npm run deploy` → Pages **`smart-senior`** (`https://smart-senior.pages.dev`). **Nie** `opennextjs-cloudflare deploy` (Worker na `*.dfcms.workers.dev`). Publiczne `NEXT_PUBLIC_SUPABASE_*` w `web/.env.production` przed buildem. **Nie Vercel.** |
 | **DB** | `npx supabase db push` (po sprawdzeniu `project-ref`) |
-| **Edge Functions** | `npx supabase functions deploy <name>` — m.in. `onboard-organization` |
+| **Edge Functions** | `npx supabase functions deploy <name>` — `onboard-organization`, `hash-pesel`, `redeem-family-invitation` |
 | **Git** | `git push origin main` **nie** deployuje Supabase. Podpięty Cloudflare Git z root `repo/` wgrywa `workerd` (144 MiB) — Root directory musi być `web/`. |
 
 ---
@@ -334,3 +338,7 @@ Pielęgniarka / Rodzina
 | 2026-08-20 | Faza 4 ingest: mapper AccessLink (`polarAccesslinkMapper.ts`); `polar-oauth` register user; `polar-webhook` idempotencja + GET activity/sleep/nightly-recharge → UPSERT `polar_*`. Testy Deno mapper (10). Brak UI sparowania i crona; brak żywego E2E Polar. |
 | 2026-08-21 | Higiena agent docs: kanał rodziny w rules/skills/ADR-010 = `daily_reports` (nie `processed_data`). Przywrócony `AGENT_WORKFLOW_README.md`. Raport hardening oznaczony jako snapshot 2026-08-14. |
 | 2026-08-21 | ADR-012: Polar i ingest poza MVP. DROP `polar_*` / `telemetry_logs` / `family_wearable_comfort`; usunięte Edge polar-*. `daily_agenda` + szablony; UNIQUE `pesel_hash` per org; AAL2 na `daily_logs`. HLD 2.4.9. Faza 3 = własne bramki. `db push` OK na `bmughdoqdsjfstxnnjks`. Katalogi product/enterprise: polar tables absent, agenda + pesel unique + 4× AAL2. Undeploy `polar-oauth` / `polar-webhook`. |
+| 2026-08-21 | UI MVP pętla produktu (User Stories v2.4): `@supabase/ssr` + middleware ról/MFA; admin karta/PESEL/zaproszenia; tablica + dyktafon IndexedDB + ręczny szkic `daily_reports` + zatwierdzenie + plan dnia; portal rodziny (aktywacja, Peace Letter, hydrant 3/h, switcher). Edge `hash-pesel` + `redeem-family-invitation` ACTIVE. Secret `PESEL_HASH_SALT`. `voice-assistant` nadal brak. |
+| 2026-08-21 | Deploy Next Worker `smart-senior-web` v `a529508b-e252-4655-b535-a948508f643f` → `https://smart-senior-web.dfcms.workers.dev`. Build z `NEXT_PUBLIC_SUPABASE_*`. Smoke HTTP: `/` i `/logowanie` 200; `/placowka` i `/rodzina` 307 → `/logowanie`; Edge `hash-pesel` 401 bez JWT. |
+| 2026-08-21 | Cutover: Next.js na Pages `smart-senior` (`https://smart-senior.pages.dev`). Usunięty Worker `smart-senior-web`. Vanilla na tym projekcie zastąpiony. `cd web && npm run deploy` = OpenNext + `wrangler pages deploy`. Projekt Pages `dfcms` nietknięty. |
+| 2026-08-21 | TASK-INFRA-02: onboarding placówki. Migracja `20260821174403_task_infra_02_onboarding` (`address`, `resident_limit`, RLS INSERT tylko `superadmin`, trigger limitu). Edge `onboard-organization` — JWT `app_metadata`, Admin invite + `app_metadata` `org_admin`, rollback. Brak Database Webhook. **db push / functions deploy jeszcze nie.** |

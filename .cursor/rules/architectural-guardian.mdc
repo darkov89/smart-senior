@@ -35,7 +35,7 @@ Pracujesz w trybie **Spec Driven Development** na platformie Pakiet Spokoju. Zan
 4. **Rodzina:** wyłącznie `daily_reports` / widok `family_daily_reports` (`status=published`); nigdy `raw_data` ani `voice_*` w kliencie family.
 5. **Degraded mode (HLD §E):** offline, AI down, SMS down — czy zmiana łamie odporność?
 6. **NFR (HLD §A.3):** notatka &lt; 60 s, AI &lt; 15 s, uptime 99.5% — czy regresja?
-7. **Dane w UE + sekrety:** brak `service_role` / OpenAI we froncie Cloudflare; deploy Next = OpenNext `smart-senior-web`; legacy Pages `smart-senior`; project-ref SeniorSmart. **Nie Vercel.**
+7. **Dane w UE + sekrety:** brak `service_role` / OpenAI we froncie Cloudflare; deploy Next = Pages `smart-senior` (`smart-senior.pages.dev`, OpenNext); project-ref SeniorSmart. **Nie Vercel.**
 
 ## Znane challenge’e (HLD 2.4.9)
 

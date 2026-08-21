@@ -228,7 +228,7 @@ HLD · MASTER_CONTEXT · SECURITY · `docs/adr/*` · LESSONS_LEARNED · **`docs/
 
 1. Nie duplikuj substancji w pointer skillach.  
 2. Zmiana routingu / Memory → `living-context` potem **ten** plik.  
-3. Tenant `organization_id`; deploy OpenNext `smart-senior-web` + legacy Pages `smart-senior` + `bmughdoqdsjfstxnnjks`. **Nie Vercel.**  
+3. Tenant `organization_id`; deploy Pages `smart-senior` (`smart-senior.pages.dev`) + `bmughdoqdsjfstxnnjks`. **Nie Vercel.** **Nie** Worker `smart-senior-web`.  
 4. IoT ingest = poza MVP (ADR-012); Faza 3 = własne bramki, nie Polar. Brak `iot_gateways`.  
 5. Peace Letter = `daily_reports` (HLD 2.4.3 / ADR-010); nie `daily_logs.processed_data`.  
 6. Nie twórz `architektura-XYZ.md` ani vector DB „bo Second Brain”.

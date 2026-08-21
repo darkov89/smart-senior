@@ -412,3 +412,13 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.onboard-organization]
 enabled = true
 verify_jwt = true
+
+# PESEL hash — staff JWT; salt stays on Edge (ADR-005)
+[functions.hash-pesel]
+enabled = true
+verify_jwt = true
+
+# Family invitation redeem — public token in body; family has no SELECT
+[functions.redeem-family-invitation]
+enabled = true
+verify_jwt = false

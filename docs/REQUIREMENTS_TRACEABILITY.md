@@ -21,7 +21,7 @@
 | REQ-SEC-002 | Family never reads `raw_data` | HLD B.2 / C | IMPLEMENTED | `family_daily_reports` ← `daily_reports` published — catalog pending JWT E2E | — |
 | REQ-SEC-003 | Audit trail on UPDATE/DELETE | HLD D / ISO posture | IMPLEMENTED | append-only trigger + catalog test — **no row-level audit E2E** | — |
 | REQ-SEC-004 | Privileged staff MFA (JWT `aal2`) on sensitive tables | HLD A.3 / D.2 / ADR-011 | IMPLEMENTED | catalog (patients, daily_reports, voice_draft_notes, family_invitations, daily_logs) — **no TOTP E2E; remote MFA Dashboard still required** | ADR-011 |
-| REQ-DATA-001 | Multi-tenant key = `organization_id` | HLD / MASTER | IMPLEMENTED | schema + helpers — **no isolation E2E** | — |
+| REQ-DATA-001 | Multi-tenant key = `organization_id` | HLD / MASTER | IMPLEMENTED | schema + helpers + onboard org_id bind — **no isolation E2E** | ADR-006 |
 | REQ-DATA-002 | 30-day purge of merged/discarded raw voice | HLD C retencja | IMPLEMENTED | `cleanup_old_voice_drafts()` + pg_cron — **no job-run evidence** | — |
 | REQ-AI-001 | No medical Guardrails in browser | HLD B.2 | IMPLEMENTED | architecture (Edge-only AI) — **no FE static check CI** | — |
 | REQ-AI-002 | Urgency → pending clinical review | HLD B.2 | NOT_IMPLEMENTED | Edge AI pipeline not shipped; stub only in tests | ADR-002 |
@@ -38,7 +38,7 @@
 | REQ-NFR-001 | Availability ≥ 99.5% | HLD A.3 | NOT_IMPLEMENTED | no uptime measurement / SLO evidence | — |
 | REQ-NFR-002 | Note save &lt; 60 s (p95) | HLD A.3 | NOT_IMPLEMENTED | no performance harness | — |
 | REQ-NFR-003 | AI latency &lt; 15 s (p95) | HLD A.3 | NOT_IMPLEMENTED | AI Edge pipeline not shipped | — |
-| REQ-NFR-004 | Offline-first PWA sync | HLD A.3 / E | NOT_IMPLEMENTED | no SW / IndexedDB queue in repo yet | — |
+| REQ-NFR-004 | Offline-first PWA sync | HLD A.3 / E | IMPLEMENTED | IndexedDB voice queue + online flush; **no service worker** | — |
 | REQ-NFR-005 | Backup RTO 4 h / RPO 1 h | HLD C | UNKNOWN | relies on Supabase PITR — **not project-verified here** | — |
 | REQ-FUNC-001 | Voice note → Peace Letter path | HLD B.2 / MVP | NOT_IMPLEMENTED | Whisper/GPT Edge + merge CRON not deployed; schema ADR-010 ready | ADR-010 |
 | REQ-FUNC-002 | Evening merge of same-day voice drafts | HLD B.2 / ADR-010 | NOT_IMPLEMENTED | table `voice_draft_notes`; Edge CRON `merge-daily-peace-letters` not shipped | ADR-010 |
@@ -64,8 +64,12 @@ implementation:
   - supabase/migrations/20260813132832_drop_iot_gateways.sql
   - supabase/migrations/20260814103804_enterprise_hardening.sql
   - supabase/migrations/20260814104307_enterprise_hardening_followup.sql
+  - supabase/migrations/20260821174403_task_infra_02_onboarding.sql
+  - supabase/functions/onboard-organization/index.ts
 tests:
   - supabase/tests/enterprise_hardening_catalog.sql
+  - supabase/tests/product_workflow_catalog.sql
+  - supabase/functions/tests/onboard-organization.test.ts
 related_decisions:
   - ADR-006
 verification:
@@ -135,13 +139,15 @@ implementation:
   - supabase/migrations/20260821160211_daily_agenda_pesel_aal2.sql
   - supabase/config.toml
   - docs/adr/011-mfa-aal2-staff-sensitive-tables.md
+  - web/src/app/logowanie/klucz/page.tsx
+  - web/src/middleware.ts
 tests:
   - supabase/tests/product_workflow_catalog.sql
 related_decisions:
   - ADR-011
 verification:
   status: IMPLEMENTED
-  method: "catalog 2026-08-19 on linked DB: 3 restrictive AAL2 policies; no TOTP enrollment E2E"
+  method: "catalog 2026-08-19 on linked DB: restrictive AAL2 policies; Next TOTP enroll UI exists; no TOTP E2E"
   evidence:
     - supabase/tests/product_workflow_catalog.sql
   last_verified: null
@@ -159,8 +165,13 @@ priority: CRITICAL
 implementation:
   - docs/MASTER_CONTEXT.md
   - supabase/migrations/20260717193117_init_multi_tenant_schema.sql
-tests: []
-related_decisions: []
+  - supabase/migrations/20260821174403_task_infra_02_onboarding.sql
+  - supabase/functions/onboard-organization/index.ts
+tests:
+  - supabase/functions/tests/onboard-organization.test.ts
+  - supabase/tests/product_workflow_catalog.sql
+related_decisions:
+  - ADR-006
 verification:
   status: IMPLEMENTED
   evidence: []
@@ -525,15 +536,19 @@ id: REQ-NFR-004
 title: Offline-first PWA — notes sync after reconnect
 source: HLD
 source_section: "A.3 / E Degraded mode"
-status: NOT_IMPLEMENTED
+status: IMPLEMENTED
 priority: CRITICAL
-implementation: []
+implementation:
+  - web/src/lib/offline/voice-queue.ts
+  - web/src/components/staff/Dictaphone.tsx
+  - web/src/components/staff/OfflineBanner.tsx
 tests: []
 related_decisions: []
 verification:
-  status: NOT_IMPLEMENTED
-  method: "no service worker / IndexedDB queue found in frontend"
-  evidence: []
+  status: IMPLEMENTED
+  method: "IndexedDB queue + online flush in Next UI; no service worker / PWA install"
+  evidence:
+    - web/src/lib/offline/voice-queue.ts
   last_verified: null
 ```
 

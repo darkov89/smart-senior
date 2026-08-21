@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function FamilyLayout({
   children,
@@ -13,13 +13,8 @@ export default function FamilyLayout({
           Pakiet Spokoju
         </p>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Dla rodziny</h1>
-          <Link
-            href="/"
-            className="text-sm font-medium text-brand-800 underline-offset-2 hover:underline"
-          >
-            Wróć
-          </Link>
+          <h1 className="text-xl font-semibold tracking-tight">Dla bliskich</h1>
+          <SignOutButton />
         </div>
       </header>
       <div className="flex flex-1 flex-col px-4 py-6">{children}</div>

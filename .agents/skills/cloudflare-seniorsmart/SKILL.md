@@ -1,9 +1,8 @@
 ---
 name: cloudflare-seniorsmart
 description: >-
-  Cloudflare hosting for Pakiet Spokoju: Next.js via OpenNext (Worker
-  smart-senior-web) and legacy Pages project smart-senior. Never Vercel, never
-  dfcms. Use when deploying /web, Wrangler, preview URLs, or Pages cutover.
+  Cloudflare hosting for Pakiet Spokoju: Next.js via OpenNext on Pages project
+  smart-senior (smart-senior.pages.dev). Never Vercel, never Pages project dfcms.
 ---
 
 # Cloudflare — SeniorSmart
@@ -12,33 +11,31 @@ description: >-
 
 [`MASTER_CONTEXT.md`](../../../docs/MASTER_CONTEXT.md) §3–4, §8.  
 Reguła: [`.cursor/rules/cloudflare-seniorsmart.mdc`](../../../.cursor/rules/cloudflare-seniorsmart.mdc).  
-**Zakaz Vercel.** Target Next: Worker **`smart-senior-web`**. Legacy static: Pages **`smart-senior`**. Nigdy `dfcms`.
+**Zakaz Vercel.** Target Next: Pages **`smart-senior`** → `https://smart-senior.pages.dev`. Nigdy projekt Pages `dfcms`.
 
 ## Ops (substancja)
 
 | Item | Value |
 |------|--------|
-| Next.js | `/web` + `@opennextjs/cloudflare` |
-| Worker | `smart-senior-web` |
-| Legacy Pages | `smart-senior` → `https://smart-senior.pages.dev` |
+| Next.js | `/web` + `@opennextjs/cloudflare` → `_worker.js` |
+| Production | Pages **`smart-senior`** → `https://smart-senior.pages.dev` |
 | Git Provider CF | **No** — Wrangler CLI |
 | Adapter | OpenNext — **nie** `@cloudflare/next-on-pages` |
+| Wycofane | Worker `smart-senior-web` (`*.dfcms.workers.dev`) |
 
 ```bash
 npm run web:dev
 # runtime Cloudflare (workerd):
 npm run web:preview
-# cutover (gdy Ops potwierdzi):
 cd web && npm run deploy
-# legacy Vanilla:
-npm run deploy:legacy
 ```
 
-Nie uploaduj `.env`. W kliencie tylko anon/publishable key.
+Nie uploaduj `.env`. W kliencie tylko anon/publishable key. Nie wgrywaj Vanilla (`index.html`) na `smart-senior`.
 
 | | DFCMS | SeniorSmart |
 |--|-------|-------------|
-| CF project | `dfcms` | `smart-senior` / `smart-senior-web` |
+| CF project | `dfcms` | `smart-senior` |
+| URL | `dfcms.pl` | `https://smart-senior.pages.dev` |
 | Repo | `dfopscms` | `darkov89/smart-senior` |
 
 Po zmianie modelu deploy → MASTER_CONTEXT §10.  

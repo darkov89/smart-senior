@@ -8,7 +8,7 @@ alwaysApply: false
 
 # Frontend — Next.js (`/web`)
 
-**Host:** Cloudflare (`@opennextjs/cloudflare`, Worker `smart-senior-web`). **Nie Vercel.**
+**Host:** Cloudflare Pages **`smart-senior`** (`smart-senior.pages.dev`) przez `@opennextjs/cloudflare`. **Nie Vercel.** Nie Worker `smart-senior-web` / `*.dfcms.workers.dev`.
 
 ## Obowiązkowe
 

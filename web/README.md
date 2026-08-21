@@ -26,4 +26,4 @@ Podgląd w runtime Cloudflare (`workerd`):
 npm run preview
 ```
 
-Deploy (gdy Ops potwierdzi cutover): `npm run deploy` → Worker `smart-senior-web`. Legacy Pages `smart-senior` (Vanilla) zostaje do wyłączenia.
+Deploy: `cd web && npm run deploy` → Pages **`smart-senior`** (`https://smart-senior.pages.dev`). Vanilla nie wgrywać na ten projekt.

@@ -2,19 +2,29 @@
  * Edge Function: onboard-organization
  *
  * Superadmin-only B2B onboarding: create organization, invite org_admin,
- * attach profile (organization_id + role). ADR-006.
+ * attach profile + Auth app_metadata (ADR-006 / TASK-INFRA-02).
  *
- * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
+ * Called by the Super Admin app — not a Database Webhook (service_role INSERT
+ * would recurse; admin email is not an organizations column).
+ *
+ * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, SITE_URL?
  * verify_jwt = true — caller must be authenticated superadmin.
  */
 
-import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.49.1";
+import {
+  extractBearerToken,
+  jwtAppRole,
+  roleFromAccessToken,
+} from "../_shared/auth.ts";
 import { CORS_HEADERS, jsonResponse } from "../_shared/http.ts";
-
-interface OnboardBody {
-  org_name: string;
-  admin_email: string;
-}
+import {
+  inviteRedirectUrl,
+  isSuperadminRole,
+  orgAdminAppMetadata,
+  parseOnboardBody,
+  type OnboardInput,
+} from "../_shared/onboardOrganization.ts";
 
 interface OnboardSuccessBody {
   ok: true;
@@ -28,32 +38,34 @@ interface OnboardErrorBody {
   error: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseBody(payload: unknown): OnboardBody {
-  if (!isRecord(payload)) {
-    throw new Error("Body must be a JSON object");
+async function rollbackOnboarding(
+  admin: SupabaseClient,
+  organizationId: string | null,
+  createdUserId: string | null,
+): Promise<void> {
+  if (createdUserId) {
+    const { error: deleteUserError } = await admin.auth.admin.deleteUser(
+      createdUserId,
+    );
+    if (deleteUserError) {
+      console.error(
+        "onboard-organization: rollback user",
+        deleteUserError.message,
+      );
+    }
   }
-  const orgName = payload.org_name;
-  const adminEmail = payload.admin_email;
-  if (typeof orgName !== "string" || orgName.trim().length === 0) {
-    throw new Error("org_name is required");
+  if (organizationId) {
+    const { error: deleteOrgError } = await admin
+      .from("organizations")
+      .delete()
+      .eq("id", organizationId);
+    if (deleteOrgError) {
+      console.error(
+        "onboard-organization: rollback org",
+        deleteOrgError.message,
+      );
+    }
   }
-  if (typeof adminEmail !== "string" || !adminEmail.includes("@")) {
-    throw new Error("admin_email is required");
-  }
-  return {
-    org_name: orgName.trim(),
-    admin_email: adminEmail.trim().toLowerCase(),
-  };
-}
-
-function extractBearerToken(authHeader: string | null): string | null {
-  if (!authHeader) return null;
-  const match = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
-  return match?.[1]?.trim() ?? null;
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -104,36 +116,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    const { data: callerProfile, error: profileError } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("onboard-organization: profile lookup", profileError.message);
-      return jsonResponse(
-        { ok: false, error: "Failed to authorize caller" } satisfies OnboardErrorBody,
-        500,
-      );
-    }
-
     const callerRole =
-      typeof callerProfile?.role === "string" ? callerProfile.role : "";
-    if (callerRole !== "superadmin") {
+      jwtAppRole(userData.user) || roleFromAccessToken(bearer);
+    if (!isSuperadminRole(callerRole)) {
       return jsonResponse(
         { ok: false, error: "Forbidden" } satisfies OnboardErrorBody,
         403,
       );
     }
 
-    let body: OnboardBody;
+    let body: OnboardInput;
     try {
-      body = parseBody(await req.json());
+      body = parseOnboardBody(await req.json());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid JSON body";
       return jsonResponse(
@@ -142,9 +136,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     const { data: organization, error: orgError } = await admin
       .from("organizations")
-      .insert({ name: body.org_name })
+      .insert({
+        name: body.orgName,
+        address: body.address,
+        resident_limit: body.residentLimit,
+      })
       .select("id")
       .single();
 
@@ -157,12 +159,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const organizationId = organization.id as string;
+    const redirectTo = inviteRedirectUrl(Deno.env.get("SITE_URL"));
 
     const { data: invited, error: inviteError } = await admin.auth.admin
-      .inviteUserByEmail(body.admin_email);
+      .inviteUserByEmail(body.adminEmail, {
+        data: {
+          full_name: body.adminFullName,
+          organization_name: body.orgName,
+        },
+        ...(redirectTo ? { redirectTo } : {}),
+      });
 
     if (inviteError || !invited.user) {
-      await admin.from("organizations").delete().eq("id", organizationId);
+      await rollbackOnboarding(admin, organizationId, null);
       console.error(
         "onboard-organization: invite",
         inviteError?.message ?? "no user",
@@ -177,23 +186,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const adminUserId = invited.user.id;
+    const appMetadata = orgAdminAppMetadata(organizationId);
+
+    const { error: metadataError } = await admin.auth.admin.updateUserById(
+      adminUserId,
+      { app_metadata: appMetadata },
+    );
+    if (metadataError) {
+      await rollbackOnboarding(admin, organizationId, adminUserId);
+      console.error(
+        "onboard-organization: app_metadata",
+        metadataError.message,
+      );
+      return jsonResponse(
+        { ok: false, error: "Failed to assign administrator role" } satisfies OnboardErrorBody,
+        500,
+      );
+    }
 
     const { error: upsertError } = await admin.from("profiles").upsert(
       {
         id: adminUserId,
         organization_id: organizationId,
         role: "org_admin",
-        full_name: "",
+        full_name: body.adminFullName,
       },
       { onConflict: "id" },
     );
 
     if (upsertError) {
+      await rollbackOnboarding(admin, organizationId, adminUserId);
       console.error("onboard-organization: profile upsert", upsertError.message);
       return jsonResponse(
         {
           ok: false,
-          error: "Organization created but profile assignment failed",
+          error: "Failed to assign administrator profile",
         } satisfies OnboardErrorBody,
         500,
       );
@@ -204,7 +231,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         ok: true,
         organization_id: organizationId,
         admin_user_id: adminUserId,
-        invited_email: body.admin_email,
+        invited_email: body.adminEmail,
       } satisfies OnboardSuccessBody,
       200,
     );

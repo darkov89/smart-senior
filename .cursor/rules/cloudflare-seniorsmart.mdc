@@ -1,6 +1,6 @@
 ---
 description: >-
-  SKILL ON-DEMAND: Cloudflare — Next.js OpenNext (smart-senior-web) + legacy Pages.
+  SKILL ON-DEMAND: Cloudflare — Next.js OpenNext na Pages smart-senior.
 alwaysApply: false
 ---
 
@@ -12,14 +12,12 @@ alwaysApply: false
 
 | | Wartość |
 |--|---------|
-| Next.js | Worker **`smart-senior-web`** (`@opennextjs/cloudflare`) |
-| Legacy static | Pages **`smart-senior`** |
-| Zakaz | Vercel, `@cloudflare/next-on-pages`, `dfcms` |
+| Next.js | Pages **`smart-senior`** (`smart-senior.pages.dev`) |
+| Zakaz | Vercel, `@cloudflare/next-on-pages`, projekt Pages `dfcms`, Worker `smart-senior-web` |
 
 ```bash
 npm run web:dev
-cd web && npm run deploy    # tylko po zgodzie na cutover
-npm run deploy:legacy       # Vanilla Pages
+cd web && npm run deploy
 ```
 
 ## Zasady

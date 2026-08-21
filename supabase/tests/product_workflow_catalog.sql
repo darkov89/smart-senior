@@ -95,5 +95,34 @@ SELECT jsonb_build_object(
   ),
   'has_pgaudit_extension', EXISTS (
     SELECT 1 FROM pg_extension WHERE extname = 'pgaudit'
+  ),
+  'organizations_has_address_and_quota', EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'address'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'resident_limit'
+  ),
+  'organizations_insert_policy_count', (
+    SELECT count(*) FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'organizations'
+      AND cmd = 'INSERT'
+  ),
+  'organizations_superadmin_insert', EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'organizations'
+      AND policyname = 'organizations_superadmin_insert'
+      AND cmd = 'INSERT'
+      AND with_check ILIKE '%superadmin%'
+      AND with_check NOT ILIKE '%org_admin%'
+      AND with_check NOT ILIKE '%super_admin%'
+  ),
+  'organizations_resident_limit_trigger', EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.organizations'::regclass
+      AND tgname = 'organizations_protect_resident_limit'
+      AND tgenabled <> 'D'
   )
 ) AS result;

@@ -28,7 +28,7 @@ Projekt przetwarza dane wrażliwe (zdrowotne) i podlega surowym regulacjom. Poni
 ## 4. Zarządzanie Sekretami
 - Nigdy nie hardkoduj kluczy API, haseł ani tokenów w kodzie (FE/BE).
 - Edge: `Deno.env.get()`; lokalnie `.env` gitignored. Frontend: wyłącznie publishable/anon key.
-- Deploy: Cloudflare OpenNext Worker **`smart-senior-web`** (Next `/web`) + legacy Pages **`smart-senior`** + Supabase **`bmughdoqdsjfstxnnjks`**. Nie DFCMS, nie Vercel.
+- Deploy: Cloudflare Pages **`smart-senior`** (`smart-senior.pages.dev`, Next `/web` OpenNext) + Supabase **`bmughdoqdsjfstxnnjks`**. Nie projekt Pages `dfcms`, nie Vercel.
 
 ## Preferred patterns
 

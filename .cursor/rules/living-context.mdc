@@ -72,7 +72,7 @@ Sprzeczne źródła pamięci → Contradiction Protocol w Librarian (nie wybiera
 | [`docs/LESSONS_LEARNED.md`](../../docs/LESSONS_LEARNED.md) | Lekcje debug |
 | [`docs/REQUIREMENTS_TRACEABILITY.md`](../../docs/REQUIREMENTS_TRACEABILITY.md) | REQ-* ↔ kod ↔ test ↔ status |
 
-Tenant = `organization_id`. Deploy = Cloudflare OpenNext `smart-senior-web` (Next) + legacy Pages `smart-senior` + Supabase `bmughdoqdsjfstxnnjks`. **Nie Vercel.**
+Tenant = `organization_id`. Deploy = Cloudflare Pages `smart-senior` (`smart-senior.pages.dev`) + Supabase `bmughdoqdsjfstxnnjks`. **Nie Vercel.** **Nie** Worker `smart-senior-web`.
 
 ## Po zadaniu
 
