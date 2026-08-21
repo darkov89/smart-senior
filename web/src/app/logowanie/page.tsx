@@ -3,11 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { EmailOtpType } from "@supabase/supabase-js";
+import type { EmailOtpType, User } from "@supabase/supabase-js";
 import {
   decodeJwtAal,
   destinationAfterAuth,
   resolveAppRole,
+  roleFromUnknown,
 } from "@/lib/auth/roles";
 import { isPublicSupabaseConfigured } from "@/lib/config";
 import { humanAuthError } from "@/lib/copy/human-errors";
@@ -15,6 +16,29 @@ import { fieldClass, labelClass, primaryButtonClass } from "@/lib/styles";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ErrorPanel } from "@/components/ui/ErrorPanel";
+
+async function destinationForSignedInUser(
+  supabase: ReturnType<typeof createBrowserSupabaseClient>,
+  user: User,
+  accessToken: string | undefined,
+): Promise<string | null> {
+  let token = accessToken;
+  let role = resolveAppRole(user, token);
+  if (!role) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    role = roleFromUnknown(profile?.role);
+    if (role) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      token = refreshed.session?.access_token ?? token;
+      role = resolveAppRole(refreshed.session?.user ?? user, token) ?? role;
+    }
+  }
+  return destinationAfterAuth(role, decodeJwtAal(token));
+}
 
 function isEmailOtpType(value: string | null): value is EmailOtpType {
   return (
@@ -61,9 +85,10 @@ export default function LoginPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       if (cancelled || !userData.user) return;
 
-      const destination = destinationAfterAuth(
-        resolveAppRole(userData.user, sessionData.session?.access_token),
-        decodeJwtAal(sessionData.session?.access_token),
+      const destination = await destinationForSignedInUser(
+        supabase,
+        userData.user,
+        sessionData.session?.access_token,
       );
       if (destination) {
         router.replace(destination);
@@ -101,9 +126,10 @@ export default function LoginPage() {
       return;
     }
 
-    const destination = destinationAfterAuth(
-      resolveAppRole(data.user, data.session.access_token),
-      decodeJwtAal(data.session.access_token),
+    const destination = await destinationForSignedInUser(
+      supabase,
+      data.user,
+      data.session.access_token,
     );
     if (destination) {
       router.replace(destination);

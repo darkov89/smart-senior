@@ -55,6 +55,10 @@ function jwtAppMetadata(
   return metadata as Record<string, unknown>;
 }
 
+export function roleFromUnknown(value: unknown): AppRole | null {
+  return parseAppRole(value);
+}
+
 export function roleFromUser(user: User | null): AppRole | null {
   return parseAppRole(user?.app_metadata?.role);
 }
